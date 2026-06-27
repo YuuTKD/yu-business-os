@@ -1,0 +1,67 @@
+# ════════════════════════════════════════════════
+# 機微情報・認証情報（絶対にコミットしない）
+# ════════════════════════════════════════════════
+
+# 環境変数・テンプレ（実値の秘密を含むため除外）
+.env
+*.env
+.env.*
+!.env.sample
+configs/env_templates/
+
+# バックアップ（env/トークン/シークレットを含む）
+backups/
+
+# 実値の秘密がハードコードされたファイル（要サニタイズ後に追跡）
+apps_script/ceo_dashboard_v2.js
+scripts/gbp_token_exchange.py
+scripts/gbp_verify_token.py
+scripts/test_airegi_api.py
+
+# 認証情報・鍵
+*credentials*.json
+*client_secret*.json
+*client_secrets*.json
+*oauth*token*.json
+*_tokens.json
+*tokens.json
+service-account*.json
+service_account*.json
+*-key.json
+*.key
+*.pem
+*.p12
+
+# ════════════════════════════════════════════════
+# Python
+# ════════════════════════════════════════════════
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ════════════════════════════════════════════════
+# OS / エディタ
+# ════════════════════════════════════════════════
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# ════════════════════════════════════════════════
+# ログ・一時ファイル
+# ════════════════════════════════════════════════
+logs/
+*.log
+tmp/
+*.tmp
+
+# ════════════════════════════════════════════════
+# Claude ローカル設定
+# ════════════════════════════════════════════════
+.claude/settings.local.json

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YU HOLDINGS — AI Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400&family=Inter:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --bg:    #070c14;
+  --bg2:   #0a1120;
+  --grid:  rgba(40,90,180,0.13);
+  --line:  rgba(255,255,255,0.07);
+  --line2: rgba(56,130,230,0.15);
+  --t0:    rgba(255,255,255,0.88);
+  --t1:    rgba(255,255,255,0.48);
+  --t2:    rgba(255,255,255,0.22);
+  --t3:    rgba(255,255,255,0.09);
+  --acc:   rgba(56,130,230,0.6);
+  --mono:  'JetBrains Mono', monospace;
+  --sans:  'Inter', sans-serif;
+}
+
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--bg);
+  color:var(--t0);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ══════════════════════════
+   HEADER
+══════════════════════════ */
+#hud{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:52px;display:flex;align-items:stretch;
+  background:rgba(7,12,20,0.96);
+  border-bottom:1px solid var(--line2);
+}
+#hud::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(56,130,230,0.45) 30%,rgba(100,200,255,0.35) 50%,rgba(56,130,230,0.45) 70%,transparent);
+}
+
+.hud-brand{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:0 22px;border-right:1px solid var(--line2);
+  flex-shrink:0;gap:3px;
+}
+.hud-brand-name{
+  font-family:var(--mono);font-size:10px;font-weight:300;
+  letter-spacing:0.22em;color:var(--t0);text-transform:uppercase;
+}
+.hud-brand-sub{
+  font-family:var(--mono);font-size:7px;font-weight:100;
+  letter-spacing:0.32em;color:rgba(100,170,255,0.5);
+}
+
+.hud-stats{display:flex;flex:1;}
+.hud-stat{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  border-right:1px solid var(--line2);gap:3px;
+}
+.hud-stat-val{
+  font-family:var(--mono);font-size:19px;font-weight:100;
+  letter-spacing:0.04em;line-height:1;
+  color:var(--t0);transition:color 0.4s,text-shadow 0.4s;
+}
+.hud-stat-val.on{
+  color:rgba(100,200,255,1);
+  text-shadow:0 0 16px rgba(80,180,255,0.5);
+}
+.hud-stat-lbl{
+  font-family:var(--mono);font-size:7px;font-weight:200;
+  letter-spacing:0.22em;color:rgba(80,130,200,0.6);text-transform:uppercase;
+}
+
+.hud-right{
+  display:flex;align-items:center;gap:14px;
+  padding:0 18px;border-left:1px solid var(--line2);flex-shrink:0;
+}
+.hud-live{
+  display:flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:7.5px;font-weight:200;
+  letter-spacing:0.28em;color:rgba(80,160,255,0.55);
+}
+.hud-live-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(80,200,255,0.8);
+  box-shadow:0 0 6px rgba(80,200,255,0.5);
+  animation:lp 2.2s ease-in-out infinite;
+}
+@keyframes lp{0%,100%{opacity:.9}50%{opacity:.25}}
+
+.hud-clock{
+  font-family:var(--mono);font-size:11px;font-weight:100;
+  color:rgba(80,130,200,0.5);letter-spacing:0.12em;
+}
+
+/* ══════════════════════════
+   LAYOUT
+══════════════════════════ */
+#root{position:fixed;inset:0;padding-top:52px;display:flex;}
+#cv{flex:1;display:block;}
+
+/* ══════════════════════════
+   RIGHT PANEL
+══════════════════════════ */
+#panel{
+  width:292px;flex-shrink:0;
+  display:flex;flex-direction:column;
+  background:rgba(7,12,20,0.97);
+  border-left:1px solid var(--line2);overflow:hidden;
+}
+.panel-head{
+  padding:12px 16px;border-bottom:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.panel-title{
+  font-family:var(--mono);font-size:8px;font-weight:200;
+  letter-spacing:0.28em;color:rgba(80,140,210,0.6);text-transform:uppercase;
+}
+.panel-meta{
+  font-family:var(--mono);font-size:8px;font-weight:100;
+  color:var(--t3);letter-spacing:0.1em;
+}
+.tier-lbl{
+  padding:9px 16px 5px;font-family:var(--mono);
+  font-size:7px;font-weight:100;letter-spacing:0.38em;
+  color:rgba(60,100,160,0.5);text-transform:uppercase;
+  border-bottom:1px solid rgba(40,90,180,0.08);flex-shrink:0;
+}
+.panel-scroll{
+  flex:1;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:rgba(56,100,200,0.1) transparent;
+}
+.panel-scroll::-webkit-scrollbar{width:1px;}
+.panel-scroll::-webkit-scrollbar-thumb{background:rgba(56,130,230,0.15);}
+
+/* ── Agent Card ── */
+.acard{
+  position:relative;
+  padding:9px 16px 9px 13px;
+  border-bottom:1px solid rgba(40,90,180,0.08);
+  transition:background 0.4s;
+}
+.acard::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:1.5px;
+  opacity:0;transition:opacity 0.4s,background 0.4s;
+}
+.acard.thinking::before{
+  opacity:1;background:rgba(80,160,255,0.7);
+  box-shadow:0 0 6px rgba(80,160,255,0.3);
+}
+.acard.outputting::before{
+  opacity:1;background:rgba(100,220,255,0.95);
+  box-shadow:0 0 8px rgba(100,220,255,0.4);
+}
+.acard.thinking {background:rgba(56,100,200,0.05);}
+.acard.outputting{background:rgba(80,200,255,0.06);}
+
+.acard-top{display:flex;align-items:center;gap:8px;}
+
+.acard-dot{
+  width:6px;height:6px;border-radius:50%;flex-shrink:0;
+  border:1px solid rgba(80,130,200,0.3);
+  transition:all 0.4s;
+}
+.acard.thinking .acard-dot{
+  border-color:rgba(80,160,255,0.8);
+  animation:dotArc 1.6s linear infinite;
+}
+.acard.outputting .acard-dot{
+  background:rgba(100,220,255,0.9);
+  border-color:transparent;
+  box-shadow:0 0 8px rgba(100,220,255,0.5);
+  animation:dotOut 0.9s ease-in-out infinite;
+}
+@keyframes dotArc{
+  0%  {box-shadow: 2.5px 0   0 rgba(80,160,255,0.9);}
+  25% {box-shadow: 0   2.5px 0 rgba(80,160,255,0.9);}
+  50% {box-shadow:-2.5px 0   0 rgba(80,160,255,0.9);}
+  75% {box-shadow: 0  -2.5px 0 rgba(80,160,255,0.9);}
+  100%{box-shadow: 2.5px 0   0 rgba(80,160,255,0.9);}
+}
+@keyframes dotOut{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
+
+.acard-names{flex:1;min-width:0;}
+.acard-name{
+  font-size:11px;font-weight:300;
+  color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color 0.3s;letter-spacing:0.01em;
+}
+.acard.thinking  .acard-name{color:var(--t1);}
+.acard.outputting .acard-name{color:rgba(200,235,255,0.95);}
+
+.acard-role{
+  font-family:var(--mono);font-size:7.5px;font-weight:100;
+  color:var(--t3);letter-spacing:0.05em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+.acard-badge{
+  font-family:var(--mono);font-size:6.5px;font-weight:200;
+  letter-spacing:0.18em;text-transform:uppercase;
+  padding:2px 5px;border:1px solid;flex-shrink:0;
+  transition:all 0.3s;
+}
+.badge-idle{color:var(--t3);border-color:rgba(255,255,255,0.05);}
+.badge-think{
+  color:rgba(80,160,255,0.9);border-color:rgba(80,160,255,0.3);
+  background:rgba(80,160,255,0.05);
+  box-shadow:0 0 8px rgba(80,160,255,0.08);
+}
+.badge-out{
+  color:rgba(100,220,255,0.95);border-color:rgba(100,220,255,0.4);
+  background:rgba(100,220,255,0.07);
+  box-shadow:0 0 10px rgba(100,220,255,0.12);
+}
+
+.acard-task{
+  margin-top:5px;padding-left:14px;
+  font-family:var(--mono);font-size:8px;font-weight:100;
+  color:var(--t3);letter-spacing:0.03em;line-height:1.5;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-height:12px;transition:color 0.3s;
+}
+.acard.thinking  .acard-task{color:rgba(80,160,255,0.5);}
+.acard.outputting .acard-task{color:rgba(100,220,255,0.65);}
+
+.acard-foot{
+  margin-top:4px;padding-left:14px;
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:7.5px;font-weight:100;
+  color:var(--t3);letter-spacing:0.05em;
+}
+
+/* ── Activity bar at card bottom ── */
+.acard-bar{
+  height:1px;margin-top:6px;
+  background:rgba(255,255,255,0.04);
+  border-radius:1px;overflow:hidden;
+}
+.acard-bar-fill{
+  height:100%;width:0%;
+  background:rgba(80,160,255,0.5);
+  transition:width 0.5s ease,background 0.4s;
+}
+.acard.outputting .acard-bar-fill{
+  background:rgba(100,220,255,0.7);
+  animation:barPulse 1.2s ease-in-out infinite;
+}
+@keyframes barPulse{0%,100%{opacity:0.7}50%{opacity:1}}
+
+/* ══════════════════════════
+   ACTIVITY LOG
+══════════════════════════ */
+#activity{
+  position:fixed;bottom:0;left:0;width:275px;
+  background:rgba(7,12,20,0.96);
+  border-top:1px solid var(--line2);
+  border-right:1px solid var(--line2);z-index:50;
+}
+.act-head{
+  padding:6px 14px;border-bottom:1px solid rgba(40,90,180,0.1);
+  font-family:var(--mono);font-size:7px;font-weight:200;
+  letter-spacing:0.3em;color:rgba(60,110,180,0.5);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.act-head::before{
+  content:'';width:4px;height:4px;border-radius:50%;
+  background:rgba(80,180,255,0.6);box-shadow:0 0 5px rgba(80,180,255,0.4);
+}
+.act-log{
+  height:88px;overflow-y:auto;padding:5px 14px;
+  scrollbar-width:thin;scrollbar-color:rgba(40,90,180,0.1) transparent;
+}
+.act-log::-webkit-scrollbar{width:1px;}
+.act-log::-webkit-scrollbar-thumb{background:rgba(56,130,230,0.1);}
+.act-line{
+  font-family:var(--mono);font-size:8.5px;font-weight:100;
+  color:rgba(60,100,160,0.5);
+  line-height:1.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color 2.5s ease;
+}
+.act-line.fresh{color:rgba(100,200,255,0.75);transition:none;}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="hud-brand">
+    <span class="hud-brand-name">YU Holdings</span>
+    <span class="hud-brand-sub">AI Operations Center</span>
+  </div>
+  <div class="hud-stats">
+    <div class="hud-stat">
+      <span class="hud-stat-val" id="sv-total">14</span>
+      <span class="hud-stat-lbl">Agents</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val on" id="sv-active">0</span>
+      <span class="hud-stat-lbl">Active</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val on" id="sv-out">0</span>
+      <span class="hud-stat-lbl">Output</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val" id="sv-tasks">0</span>
+      <span class="hud-stat-lbl">Completed</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val" style="font-size:13px;color:rgba(100,160,255,0.5)" id="sv-uptime">00:00:00</span>
+      <span class="hud-stat-lbl">Uptime</span>
+    </div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-live"><div class="hud-live-dot"></div>LIVE</div>
+    <div class="hud-clock" id="hud-clock">--:--:--</div>
+  </div>
+</div>
+
+<div id="root">
+  <canvas id="cv"></canvas>
+  <div id="panel">
+    <div class="panel-head">
+      <span class="panel-title">Agent Status</span>
+      <span class="panel-meta" id="panel-meta">— / 14</span>
+    </div>
+    <div class="panel-scroll" id="panel-scroll"></div>
+  </div>
+</div>
+
+<div id="activity">
+  <div class="act-head">Task Log</div>
+  <div class="act-log" id="act-log">
+    <div class="act-line">Initializing agents...</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────
+   CONFIG
+───────────────────────────────── */
+const NODE_POS = {
+  coo:                 {rx:0.500, ry:0.200},
+  cfo:                 {rx:0.370, ry:0.330},
+  cmo:                 {rx:0.630, ry:0.330},
+  cto:                 {rx:0.500, ry:0.460},
+  content_beauty:      {rx:0.148, ry:0.240},
+  content_catering:    {rx:0.090, ry:0.438},
+  content_tachinomiya: {rx:0.150, ry:0.645},
+  content_hinabe:      {rx:0.292, ry:0.775},
+  content_pasta:       {rx:0.428, ry:0.835},
+  task_commander:      {rx:0.855, ry:0.240},
+  image_manager:       {rx:0.912, ry:0.438},
+  threads_bot:         {rx:0.850, ry:0.645},
+  weekly_reporter:     {rx:0.708, ry:0.775},
+  blog_generator:      {rx:0.572, ry:0.835},
+};
+
+const NODE_R = {
+  coo:22, cfo:16, cmo:16, cto:16,
+  content_beauty:12,content_catering:12,content_tachinomiya:12,
+  content_hinabe:12,content_pasta:12,
+  task_commander:12,image_manager:12,threads_bot:12,
+  weekly_reporter:12,blog_generator:12,
+};
+
+// Tier color (RGB)
+const TIER_C = {
+  executive: [79, 133, 214],
+  content:   [56, 189, 248],
+  ops:       [129, 140, 248],
+};
+
+const CONNECTIONS = [
+  ['coo','cfo'],['coo','cmo'],['coo','cto'],['coo','task_commander'],
+  ['cfo','cmo'],['cfo','weekly_reporter'],
+  ['cmo','content_beauty'],['cmo','content_catering'],
+  ['cmo','content_tachinomiya'],['cmo','content_hinabe'],
+  ['cmo','content_pasta'],['cmo','threads_bot'],
+  ['cto','image_manager'],['cto','blog_generator'],
+  ['content_beauty','image_manager'],['content_catering','image_manager'],
+  ['content_tachinomiya','image_manager'],['content_hinabe','image_manager'],
+  ['content_pasta','image_manager'],
+  ['task_commander','content_beauty'],['task_commander','content_catering'],
+  ['threads_bot','content_beauty'],['threads_bot','content_tachinomiya'],
+  ['weekly_reporter','cfo'],['blog_generator','image_manager'],
+];
+
+/* ─────────────────────────────────
+   STATE
+───────────────────────────────── */
+let agentMeta  = {};
+let agentState = {};
+let taskCount  = {};
+let totalDone  = 0;
+let time       = 0;
+let lastTS     = 0;
+const startTime = Date.now();
+
+// Data rivers: key = "from|to", value = {phase}
+const rivers = {};
+
+/* ─────────────────────────────────
+   CANVAS
+───────────────────────────────── */
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let gridCache = null;
+
+function buildGrid(W, H) {
+  gridCache = document.createElement('canvas');
+  gridCache.width = W; gridCache.height = H;
+  const gc = gridCache.getContext('2d');
+  const step = 58;
+  gc.strokeStyle = 'rgba(40,90,180,0.13)';
+  gc.lineWidth = 0.5;
+  for (let x = 0; x < W; x += step) { gc.beginPath(); gc.moveTo(x,0); gc.lineTo(x,H); gc.stroke(); }
+  for (let y = 0; y < H; y += step) { gc.beginPath(); gc.moveTo(0,y); gc.lineTo(W,y); gc.stroke(); }
+}
+
+function resize() {
+  cv.width  = window.innerWidth - 292;
+  cv.height = window.innerHeight - 52;
+  buildGrid(cv.width, cv.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+function nxy(id) {
+  const p = NODE_POS[id];
+  if (!p) return {x: cv.width/2, y: cv.height/2};
+  return {x: p.rx * cv.width, y: p.ry * cv.height};
+}
+
+function nc(id) {
+  const ag = agentMeta[id];
+  return TIER_C[ag?.tier] || TIER_C.ops;
+}
+
+function st(id) {
+  return agentState[id]?.status || 'idle';
+}
+
+/* ─────────────────────────────────
+   DRAW — BACKGROUND
+───────────────────────────────── */
+function drawBG() {
+  ctx.fillStyle = '#070c14';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  if (gridCache) ctx.drawImage(gridCache, 0, 0);
+  // Subtle vignette
+  const vg = ctx.createRadialGradient(cv.width*.5, cv.height*.5, cv.height*.3, cv.width*.5, cv.height*.5, cv.height);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+}
+
+/* ─────────────────────────────────
+   DRAW — CONNECTIONS
+───────────────────────────────── */
+function drawConnections() {
+  CONNECTIONS.forEach(([a, b]) => {
+    const pa = nxy(a), pb = nxy(b);
+    const sa = st(a), sb = st(b);
+    const active = sa !== 'idle' || sb !== 'idle';
+
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = active ? 'rgba(56,120,220,0.22)' : 'rgba(30,65,130,0.18)';
+    ctx.lineWidth = active ? 0.7 : 0.4;
+    ctx.stroke();
+  });
+}
+
+/* ─────────────────────────────────
+   DATA RIVERS
+───────────────────────────────── */
+function updateRivers(dt) {
+  CONNECTIONS.forEach(([a, b]) => {
+    const sa = st(a), sb = st(b);
+    const kAB = `${a}|${b}`;
+    const kBA = `${b}|${a}`;
+
+    // Outputting → fast bright river
+    if (sa === 'outputting') {
+      if (!rivers[kAB]) rivers[kAB] = {phase:Math.random(), spd:0.38, bright:true};
+    } else if (sa === 'thinking') {
+      if (!rivers[kAB]) rivers[kAB] = {phase:Math.random(), spd:0.18, bright:false};
+    } else {
+      delete rivers[kAB];
+    }
+
+    if (sb === 'outputting') {
+      if (!rivers[kBA]) rivers[kBA] = {phase:Math.random(), spd:0.38, bright:true};
+    } else {
+      delete rivers[kBA];
+    }
+  });
+
+  Object.values(rivers).forEach(r => {
+    r.phase = (r.phase + r.spd * dt) % 1;
+  });
+}
+
+function drawRivers() {
+  Object.entries(rivers).forEach(([key, rv]) => {
+    const sep = key.indexOf('|');
+    const fromId = key.slice(0, sep), toId = key.slice(sep+1);
+    const pa = nxy(fromId), pb = nxy(toId);
+    const N = rv.bright ? 8 : 4;
+
+    for (let i = 0; i < N; i++) {
+      const t = (rv.phase + i/N) % 1;
+      const x = pa.x + (pb.x - pa.x) * t;
+      const y = pa.y + (pb.y - pa.y) * t;
+      const fade = Math.min(t * 6, (1-t) * 6, 1);
+      const a = (rv.bright ? 0.75 : 0.35) * fade;
+
+      ctx.beginPath();
+      ctx.arc(x, y, rv.bright ? 2 : 1.4, 0, Math.PI*2);
+      ctx.fillStyle = rv.bright
+        ? `rgba(100,210,255,${a})`
+        : `rgba(70,140,230,${a * 0.7})`;
+      ctx.fill();
+    }
+  });
+}
+
+/* ─────────────────────────────────
+   DRAW — NODES
+───────────────────────────────── */
+function drawNode(id) {
+  const {x, y} = nxy(id);
+  const r = NODE_R[id] || 12;
+  const s = st(id);
+  const [cr, cg, cb] = nc(id);
+
+  if (s === 'outputting') {
+    // Outer atmospheric glow
+    const g = ctx.createRadialGradient(x,y,0,x,y,r*4);
+    g.addColorStop(0, `rgba(${cr},${cg},${cb},0.22)`);
+    g.addColorStop(0.4, `rgba(${cr},${cg},${cb},0.08)`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r*4,0,Math.PI*2); ctx.fill();
+
+    // Fill
+    const fg = ctx.createRadialGradient(x-r*.3,y-r*.3,0,x,y,r);
+    fg.addColorStop(0, `rgba(${Math.min(cr+50,255)},${Math.min(cg+50,255)},${Math.min(cb+50,255)},0.95)`);
+    fg.addColorStop(0.7, `rgba(${cr},${cg},${cb},0.65)`);
+    fg.addColorStop(1, `rgba(${cr*.5|0},${cg*.5|0},${cb*.5|0},0.3)`);
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+
+    // Rim
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(${Math.min(cr+60,255)},${Math.min(cg+60,255)},${Math.min(cb+60,255)},0.85)`;
+    ctx.lineWidth = 1; ctx.stroke();
+
+    // Expanding pulse ring
+    const pr = r + 5 + Math.sin(time*4)*3;
+    ctx.beginPath(); ctx.arc(x,y,pr,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},${0.2+Math.sin(time*4)*0.1})`;
+    ctx.lineWidth = 0.6; ctx.stroke();
+
+  } else if (s === 'thinking') {
+    // Subtle bg fill
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},0.09)`; ctx.fill();
+
+    // Dim base ring
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.22)`;
+    ctx.lineWidth = 0.8; ctx.stroke();
+
+    // Primary rotating arc
+    const a1 = time * 1.25;
+    ctx.beginPath(); ctx.arc(x,y,r,a1,a1+Math.PI*1.25);
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.8)`;
+    ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke();
+
+    // Secondary slow counter arc
+    const a2 = -time * 0.55 + 1;
+    ctx.beginPath(); ctx.arc(x,y,r,a2,a2+Math.PI*0.55);
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.3)`;
+    ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    // Inner dot
+    ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},0.55)`; ctx.fill();
+
+  } else {
+    // Idle
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.16)`;
+    ctx.lineWidth = 0.6; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},0.16)`; ctx.fill();
+  }
+}
+
+/* ─────────────────────────────────
+   DRAW — LABELS + TASK TEXT
+───────────────────────────────── */
+function drawLabels() {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+
+  Object.keys(NODE_POS).forEach(id => {
+    const {x, y} = nxy(id);
+    const r  = NODE_R[id] || 12;
+    const s  = st(id);
+    const ag = agentMeta[id];
+    if (!ag) return;
+    const [cr, cg, cb] = nc(id);
+
+    const na = s === 'idle' ? 0.26 : s === 'thinking' ? 0.62 : 0.85;
+
+    // Name
+    ctx.font = `200 9px 'JetBrains Mono',monospace`;
+    ctx.fillStyle = s === 'idle'
+      ? `rgba(${cr},${cg},${cb},${na})`
+      : `rgba(220,235,255,${na})`;
+    ctx.fillText(ag.name.replace('AI ','').replace(' コンテンツAI',''), x, y + r + 6);
+
+    // Role
+    ctx.font = `100 7px 'JetBrains Mono',monospace`;
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${s==='idle'?0.14:0.28})`;
+    ctx.fillText(ag.role.substring(0,16), x, y + r + 17);
+
+    // Task text (only when active)
+    if (s !== 'idle') {
+      const task = agentState[id]?.current_task || '';
+      if (task) {
+        ctx.font = `100 7.5px 'JetBrains Mono',monospace`;
+        const ta = s === 'outputting' ? 0.7 : 0.42;
+        ctx.fillStyle = s === 'outputting'
+          ? `rgba(${cr},${cg},${cb},${ta})`
+          : `rgba(${cr},${cg},${cb},${ta})`;
+        ctx.fillText(task.substring(0, 19), x, y + r + 28);
+      }
+    }
+  });
+}
+
+/* ─────────────────────────────────
+   RENDER LOOP
+───────────────────────────────── */
+function render(ts) {
+  const dt = Math.min((ts - lastTS) / 1000, 0.05);
+  lastTS = ts; time += dt;
+
+  drawBG();
+  drawConnections();
+  updateRivers(dt);
+  drawRivers();
+  Object.keys(NODE_POS).forEach(drawNode);
+  drawLabels();
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(ts => { lastTS = ts; requestAnimationFrame(render); });
+
+/* ─────────────────────────────────
+   PANEL
+───────────────────────────────── */
+const TIER_LABEL = {executive:'Executive',content:'Content Engine',ops:'Operations'};
+
+function buildPanel(agList) {
+  const scroll = document.getElementById('panel-scroll');
+  scroll.innerHTML = '';
+  ['executive','content','ops'].forEach(tier => {
+    const list = agList.filter(a => a.tier === tier);
+    if (!list.length) return;
+    const lbl = document.createElement('div');
+    lbl.className = 'tier-lbl';
+    lbl.textContent = TIER_LABEL[tier] || tier;
+    scroll.appendChild(lbl);
+    list.forEach(ag => scroll.appendChild(makeCard(ag)));
+  });
+}
+
+function makeCard(ag) {
+  const d = document.createElement('div');
+  d.className = 'acard idle';
+  d.id = `ac-${ag.id}`;
+  d.innerHTML = `
+    <div class="acard-top">
+      <div class="acard-dot"></div>
+      <div class="acard-names">
+        <div class="acard-name">${ag.name}</div>
+        <div class="acard-role">${ag.role}</div>
+      </div>
+      <span class="acard-badge badge-idle" id="abg-${ag.id}">Standby</span>
+    </div>
+    <div class="acard-task" id="atk-${ag.id}"></div>
+    <div class="acard-foot">
+      <span>Tasks: <b id="atn-${ag.id}" style="color:rgba(80,140,255,0.5)">0</b></span>
+      <span id="atm-${ag.id}" style="color:rgba(255,255,255,0.08)">—</span>
+    </div>
+    <div class="acard-bar"><div class="acard-bar-fill" id="abf-${ag.id}"></div></div>`;
+  return d;
+}
+
+const barWidths = {}; // id → current %
+
+function updateCard(id, status, task) {
+  const card  = document.getElementById(`ac-${id}`);
+  const badge = document.getElementById(`abg-${id}`);
+  const tEl   = document.getElementById(`atk-${id}`);
+  const bar   = document.getElementById(`abf-${id}`);
+  if (!card) return;
+
+  card.className = `acard ${status}`;
+
+  if (status === 'idle') {
+    badge.className   = 'acard-badge badge-idle';
+    badge.textContent = 'Standby';
+    tEl.textContent   = '';
+    if (bar) bar.style.width = '0%';
+    barWidths[id] = 0;
+  } else if (status === 'thinking') {
+    badge.className   = 'acard-badge badge-think';
+    badge.textContent = 'Processing';
+    tEl.textContent   = task || '';
+    const w = 25 + Math.random() * 40;
+    barWidths[id] = w;
+    if (bar) bar.style.width = w + '%';
+  } else {
+    badge.className   = 'acard-badge badge-out';
+    badge.textContent = 'Output';
+    tEl.textContent   = task || '';
+    if (bar) { bar.style.width = '100%'; }
+    barWidths[id] = 100;
+  }
+}
+
+/* ─────────────────────────────────
+   STATS
+───────────────────────────────── */
+function refreshStats() {
+  let active = 0, out = 0;
+  Object.values(agentState).forEach(s => {
+    if (s.status === 'thinking')   active++;
+    if (s.status === 'outputting'){ active++; out++; }
+  });
+  document.getElementById('sv-active').textContent = active;
+  document.getElementById('sv-out').textContent    = out;
+  document.getElementById('sv-tasks').textContent  = totalDone;
+  document.getElementById('panel-meta').textContent =
+    `${active} / ${Object.keys(agentState).length} active`;
+}
+
+/* ─────────────────────────────────
+   UPTIME CLOCK
+───────────────────────────────── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('hud-clock').textContent =
+    now.toLocaleTimeString('ja-JP');
+  const up = Math.floor((Date.now() - startTime) / 1000);
+  const h = (up/3600|0).toString().padStart(2,'0');
+  const m = ((up%3600)/60|0).toString().padStart(2,'0');
+  const s2= (up%60).toString().padStart(2,'0');
+  const el = document.getElementById('sv-uptime');
+  if (el) el.textContent = `${h}:${m}:${s2}`;
+}
+setInterval(tickClock, 1000); tickClock();
+
+/* ─────────────────────────────────
+   LOG
+───────────────────────────────── */
+function addLog(name, task) {
+  const log  = document.getElementById('act-log');
+  const init = log.querySelector('.act-line');
+  if (init && (init.textContent.startsWith('Init') || init.textContent.startsWith('Connect')))
+    init.remove();
+  const ts = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d  = document.createElement('div');
+  d.className   = 'act-line fresh';
+  d.textContent = `${ts}  ${name}  →  ${(task||'').substring(0,22)}`;
+  log.appendChild(d);
+  setTimeout(() => d.classList.remove('fresh'), 2800);
+  const all = log.querySelectorAll('.act-line');
+  if (all.length > 14) all[0].remove();
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ─────────────────────────────────
+   WEBSOCKET
+───────────────────────────────── */
+let ws;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+
+    if (d.type === 'init') {
+      agentMeta = {}; agentState = {}; taskCount = {}; totalDone = 0;
+      d.agents.forEach(ag => {
+        agentMeta[ag.id]  = ag;
+        agentState[ag.id] = {status:'idle', current_task:''};
+        taskCount[ag.id]  = 0;
+      });
+      Object.entries(d.states).forEach(([id, s]) => {
+        agentState[id] = s;
+        taskCount[id]  = s.task_count || 0;
+        totalDone     += s.task_count || 0;
+      });
+      buildPanel(d.agents);
+      d.agents.forEach(ag => updateCard(ag.id, agentState[ag.id]?.status||'idle',''));
+      document.getElementById('sv-total').textContent = d.agents.length;
+      refreshStats();
+    }
+
+    else if (d.type === 'status') {
+      agentState[d.agent_id] = {status: d.status, current_task: d.current_task};
+      updateCard(d.agent_id, d.status, d.current_task);
+      refreshStats();
+    }
+
+    else if (d.type === 'log') {
+      const diff = d.task_count - (taskCount[d.agent_id] || 0);
+      taskCount[d.agent_id] = d.task_count; totalDone += diff;
+      const nEl = document.getElementById(`atn-${d.agent_id}`);
+      if (nEl) nEl.textContent = d.task_count;
+      const mEl = document.getElementById(`atm-${d.agent_id}`);
+      if (mEl) mEl.textContent = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      const nm  = agentMeta[d.agent_id]?.name || d.agent_id;
+      addLog(nm, agentState[d.agent_id]?.current_task || '');
+      refreshStats();
+    }
+  };
+
+  ws.onclose = () => setTimeout(connect, 3000);
+  setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
+}
+
+connect();
+</script>
+</body>
+</html>

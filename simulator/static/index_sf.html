@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YU HOLDINGS — NEURAL MATRIX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400&family=Inter:wght@100;200;300;400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --void:   #030303;
+  --glass:  rgba(255,255,255,0.028);
+  --border: rgba(255,255,255,0.06);
+  --text0:  rgba(255,255,255,0.90);
+  --text1:  rgba(255,255,255,0.50);
+  --text2:  rgba(255,255,255,0.22);
+  --text3:  rgba(255,255,255,0.10);
+  --cyan:   #00d4ff;
+  --violet: #b44fff;
+  --blue:   #4a8fff;
+  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --sans: 'Inter', 'SF Pro Display', sans-serif;
+}
+
+html,body{
+  width:100%; height:100%;
+  overflow:hidden;
+  background:var(--void);
+  color:var(--text0);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ═══════════════════════════════════
+   HUD HEADER — glassmorphism
+═══════════════════════════════════ */
+#hud{
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  height:56px;
+  display:flex; align-items:center;
+  background:rgba(3,3,3,0.70);
+  backdrop-filter:blur(40px) saturate(180%);
+  -webkit-backdrop-filter:blur(40px) saturate(180%);
+  border-bottom:1px solid var(--border);
+}
+
+.hud-brand{
+  padding:0 28px 0 24px;
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column; gap:1px;
+  flex-shrink:0;
+}
+.hud-brand-name{
+  font-family:var(--mono);
+  font-size:10px; font-weight:200;
+  letter-spacing:0.25em;
+  color:var(--text0);
+  text-transform:uppercase;
+}
+.hud-brand-sub{
+  font-family:var(--mono);
+  font-size:8px; font-weight:100;
+  letter-spacing:0.3em;
+  color:var(--text2);
+}
+
+.hud-stats{
+  display:flex; flex:1; height:100%;
+}
+.hud-stat{
+  flex:1;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  border-right:1px solid var(--border);
+  gap:2px;
+  cursor:default;
+}
+.hud-stat-val{
+  font-family:var(--mono);
+  font-size:20px; font-weight:100;
+  letter-spacing:0.05em;
+  line-height:1;
+  color:#fff;
+  text-shadow:0 0 20px rgba(100,180,255,0.6), 0 0 40px rgba(100,180,255,0.2);
+  transition:text-shadow 0.4s;
+}
+.hud-stat-val.active{
+  text-shadow:0 0 20px rgba(0,212,255,0.9), 0 0 40px rgba(0,212,255,0.5);
+  color:var(--cyan);
+}
+.hud-stat-val.out{
+  text-shadow:0 0 20px rgba(180,80,255,0.9), 0 0 40px rgba(180,80,255,0.5);
+  color:var(--violet);
+}
+.hud-stat-lbl{
+  font-family:var(--mono);
+  font-size:8px; font-weight:200;
+  letter-spacing:0.2em;
+  color:var(--text2);
+  text-transform:uppercase;
+}
+
+.hud-live{
+  display:flex; align-items:center; gap:8px;
+  padding:0 24px;
+  border-left:1px solid var(--border);
+  font-family:var(--mono);
+  font-size:9px; font-weight:200;
+  letter-spacing:0.3em;
+  color:rgba(0,212,255,0.6);
+}
+.hud-live-dot{
+  width:5px; height:5px; border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 8px var(--cyan);
+  animation:livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+.hud-clock{
+  padding:0 24px;
+  font-family:var(--mono);
+  font-size:12px; font-weight:100;
+  color:var(--text2);
+  letter-spacing:0.15em;
+  border-left:1px solid var(--border);
+  white-space:nowrap;
+}
+
+/* ═══════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════ */
+#root{
+  position:fixed; inset:0;
+  display:flex;
+}
+
+/* ═══════════════════════════════════
+   CANVAS
+═══════════════════════════════════ */
+#cv{
+  flex:1;
+  display:block;
+  margin-top:56px;
+}
+
+/* ═══════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════ */
+#panel{
+  width:300px; flex-shrink:0;
+  margin-top:56px;
+  background:rgba(3,3,3,0.92);
+  border-left:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+
+.panel-head{
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.panel-title{
+  font-family:var(--mono);
+  font-size:9px; font-weight:200;
+  letter-spacing:0.3em;
+  color:var(--text2);
+  text-transform:uppercase;
+}
+.panel-count{
+  font-family:var(--mono);
+  font-size:9px; font-weight:200;
+  color:var(--text3);
+  letter-spacing:0.1em;
+}
+
+.panel-section{
+  padding:10px 18px 4px;
+  font-family:var(--mono);
+  font-size:7px; font-weight:200;
+  letter-spacing:0.4em;
+  color:var(--text3);
+  text-transform:uppercase;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  flex-shrink:0;
+}
+
+.panel-scroll{
+  flex:1; overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.05) transparent;
+}
+.panel-scroll::-webkit-scrollbar{width:2px;}
+.panel-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);}
+
+/* ── Agent Card ── */
+.acard{
+  position:relative;
+  padding:10px 18px 10px 21px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  transition:background 0.3s;
+  cursor:default;
+}
+.acard::before{
+  content:'';
+  position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:var(--nc, #4a8fff);
+  opacity:0.25;
+  transition:opacity 0.4s;
+}
+.acard.thinking::before  { opacity:0.9; background:var(--cyan); }
+.acard.outputting::before{ opacity:1;   background:var(--violet);
+  box-shadow:0 0 8px var(--violet); }
+
+.acard.thinking  { background:rgba(0,212,255,0.025); }
+.acard.outputting{ background:rgba(180,80,255,0.03); }
+
+.acard-top{
+  display:flex; align-items:center; gap:8px;
+}
+
+/* Node dot indicator */
+.acard-dot{
+  width:8px; height:8px; border-radius:50%; flex-shrink:0;
+  background:var(--nc, #4a8fff);
+  opacity:0.3; transition:opacity 0.4s, box-shadow 0.4s;
+}
+.acard.thinking  .acard-dot{ opacity:1; box-shadow:0 0 10px var(--cyan);   background:var(--cyan); }
+.acard.outputting .acard-dot{ opacity:1; box-shadow:0 0 14px var(--violet); background:var(--violet);
+  animation:dotPulse 0.7s ease-in-out infinite; }
+@keyframes dotPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+.acard-names{ flex:1; min-width:0; }
+.acard-name{
+  font-size:11px; font-weight:300;
+  color:var(--text1);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:color 0.3s;
+}
+.acard.thinking  .acard-name{ color:var(--text0); }
+.acard.outputting .acard-name{ color:#fff; }
+
+.acard-role{
+  font-family:var(--mono);
+  font-size:8px; font-weight:100;
+  color:var(--text3);
+  letter-spacing:0.05em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* Status badge */
+.acard-badge{
+  font-family:var(--mono);
+  font-size:7px; font-weight:200;
+  letter-spacing:0.2em;
+  padding:2px 6px;
+  border:1px solid;
+  white-space:nowrap; flex-shrink:0;
+  transition:all 0.3s;
+}
+.badge-idle    { color:var(--text3);             border-color:rgba(255,255,255,0.06); }
+.badge-think   { color:var(--cyan);              border-color:rgba(0,212,255,0.4);
+                 background:rgba(0,212,255,0.05); box-shadow:0 0 8px rgba(0,212,255,0.1); }
+.badge-output  { color:var(--violet);            border-color:rgba(180,80,255,0.5);
+                 background:rgba(180,80,255,0.06); box-shadow:0 0 10px rgba(180,80,255,0.15); }
+
+/* Task text */
+.acard-task{
+  margin-top:7px;
+  font-family:var(--mono);
+  font-size:9px; font-weight:100;
+  color:var(--text3);
+  letter-spacing:0.03em;
+  line-height:1.5;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:color 0.3s;
+  min-height:14px;
+  padding-left:2px;
+  border-left:1px solid rgba(255,255,255,0.06);
+}
+.acard.thinking  .acard-task{ color:rgba(0,212,255,0.7);  border-color:rgba(0,212,255,0.3); }
+.acard.outputting .acard-task{ color:rgba(180,80,255,0.8); border-color:rgba(180,80,255,0.4); }
+
+/* Footer */
+.acard-foot{
+  margin-top:5px;
+  display:flex; justify-content:space-between;
+  font-family:var(--mono);
+  font-size:8px; font-weight:100;
+  color:var(--text3);
+  letter-spacing:0.05em;
+}
+.acard-count{ color:rgba(255,255,255,0.18); }
+
+/* ═══════════════════════════════════
+   ACTIVITY OVERLAY
+═══════════════════════════════════ */
+#activity{
+  position:fixed;
+  bottom:0; left:0;
+  width:280px;
+  background:rgba(3,3,3,0.88);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  border-right:1px solid var(--border);
+  z-index:50;
+}
+.act-head{
+  padding:7px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  font-family:var(--mono);
+  font-size:7px; font-weight:200;
+  letter-spacing:0.35em;
+  color:var(--text3);
+  text-transform:uppercase;
+  display:flex; align-items:center; gap:6px;
+}
+.act-head::before{
+  content:''; width:4px; height:4px; border-radius:50%;
+  background:rgba(0,212,255,0.5);
+  box-shadow:0 0 6px var(--cyan);
+}
+.act-log{
+  height:96px; overflow-y:auto;
+  padding:6px 14px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.04) transparent;
+}
+.act-log::-webkit-scrollbar{width:2px;}
+.act-log::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.05);}
+.act-line{
+  font-family:var(--mono);
+  font-size:9px; font-weight:100;
+  color:var(--text3);
+  line-height:1.8;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:color 1.5s ease;
+}
+.act-line.fresh{ color:rgba(0,212,255,0.7); transition:none; }
+
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-brand">
+    <span class="hud-brand-name">YU Holdings</span>
+    <span class="hud-brand-sub">Neural Matrix</span>
+  </div>
+  <div class="hud-stats">
+    <div class="hud-stat">
+      <span class="hud-stat-val" id="sv-total">14</span>
+      <span class="hud-stat-lbl">Nodes</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val active" id="sv-active">0</span>
+      <span class="hud-stat-lbl">Active</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val out" id="sv-out">0</span>
+      <span class="hud-stat-lbl">Output</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val" id="sv-tasks">0</span>
+      <span class="hud-stat-lbl">Tasks</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-val" id="sv-biz" style="color:rgba(255,200,80,0.8);text-shadow:0 0 20px rgba(255,180,0,0.5)">6</span>
+      <span class="hud-stat-lbl">Business</span>
+    </div>
+  </div>
+  <div class="hud-live"><div class="hud-live-dot"></div>LIVE</div>
+  <div class="hud-clock" id="hud-clock">--:--:--</div>
+</div>
+
+<!-- Root -->
+<div id="root">
+  <canvas id="cv"></canvas>
+  <div id="panel">
+    <div class="panel-head">
+      <span class="panel-title">AI Agents</span>
+      <span class="panel-count" id="panel-active-count">0 / 14 active</span>
+    </div>
+    <div class="panel-scroll" id="panel-scroll"></div>
+  </div>
+</div>
+
+<!-- Activity -->
+<div id="activity">
+  <div class="act-head">System Log</div>
+  <div class="act-log" id="act-log">
+    <div class="act-line">Initializing neural matrix...</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ────────────────────────────────────
+   AGENT DEFINITIONS
+──────────────────────────────────── */
+const AGENT_COLOR = {
+  coo:'#6366f1', cfo:'#10b981', cmo:'#f59e0b', cto:'#ef4444',
+  content_beauty:'#ec4899', content_catering:'#8b5cf6',
+  content_tachinomiya:'#06b6d4', content_hinabe:'#f97316',
+  content_pasta:'#84cc16',
+  task_commander:'#64748b', image_manager:'#0ea5e9',
+  threads_bot:'#a855f7', weekly_reporter:'#14b8a6',
+  blog_generator:'#f43f5e',
+};
+
+// Relative positions on canvas (rx=0..1, ry=0..1)
+const NODE_POS = {
+  coo:                   {rx:0.500, ry:0.200},
+  cfo:                   {rx:0.370, ry:0.330},
+  cmo:                   {rx:0.630, ry:0.330},
+  cto:                   {rx:0.500, ry:0.460},
+  content_beauty:        {rx:0.150, ry:0.240},
+  content_catering:      {rx:0.095, ry:0.440},
+  content_tachinomiya:   {rx:0.155, ry:0.650},
+  content_hinabe:        {rx:0.295, ry:0.780},
+  content_pasta:         {rx:0.430, ry:0.840},
+  task_commander:        {rx:0.855, ry:0.240},
+  image_manager:         {rx:0.910, ry:0.440},
+  threads_bot:           {rx:0.845, ry:0.650},
+  weekly_reporter:       {rx:0.705, ry:0.780},
+  blog_generator:        {rx:0.570, ry:0.840},
+};
+
+const NODE_R = {
+  coo:28, cfo:22, cmo:22, cto:22,
+  content_beauty:16, content_catering:16, content_tachinomiya:16,
+  content_hinabe:16, content_pasta:16,
+  task_commander:16, image_manager:16, threads_bot:16,
+  weekly_reporter:16, blog_generator:16,
+};
+
+const CONNECTIONS = [
+  ['coo','cfo'],['coo','cmo'],['coo','cto'],['coo','task_commander'],
+  ['cfo','cmo'],['cfo','weekly_reporter'],
+  ['cmo','content_beauty'],['cmo','content_catering'],
+  ['cmo','content_tachinomiya'],['cmo','content_hinabe'],
+  ['cmo','content_pasta'],['cmo','threads_bot'],
+  ['cto','image_manager'],['cto','blog_generator'],
+  ['content_beauty','image_manager'],['content_catering','image_manager'],
+  ['content_tachinomiya','image_manager'],['content_hinabe','image_manager'],
+  ['content_pasta','image_manager'],
+  ['task_commander','content_beauty'],['task_commander','content_catering'],
+  ['threads_bot','content_beauty'],['threads_bot','content_tachinomiya'],
+  ['weekly_reporter','cfo'],['blog_generator','image_manager'],
+];
+
+const TIER_SECTION = {
+  executive:'EXECUTIVE LAYER',
+  content:'CONTENT ENGINE',
+  ops:'OPERATIONS',
+};
+
+/* ────────────────────────────────────
+   STATE
+──────────────────────────────────── */
+let agentMeta  = {};   // id → {name, role, tier, icon}
+let agentState = {};   // id → {status, current_task}
+let taskCount  = {};   // id → number
+let totalDone  = 0;
+let particles  = [];   // particle pool
+let time       = 0;    // elapsed seconds
+let lastTS     = 0;
+
+/* ────────────────────────────────────
+   CANVAS
+──────────────────────────────────── */
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+// Background network (pre-computed, repositioned on resize)
+const BG_NODES = [];
+const BG_EDGES = [];
+const BG_N = 90;
+
+function computeBackground() {
+  const W = cv.width, H = cv.height;
+  BG_NODES.length = 0;
+  BG_EDGES.length = 0;
+  for (let i = 0; i < BG_N; i++) {
+    BG_NODES.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      ph: Math.random() * Math.PI * 2,
+      sp: 0.2 + Math.random() * 0.4,
+    });
+  }
+  const thresh = Math.min(W, H) * 0.17;
+  for (let i = 0; i < BG_N; i++) {
+    for (let j = i+1; j < BG_N; j++) {
+      const dx = BG_NODES[i].x - BG_NODES[j].x;
+      const dy = BG_NODES[i].y - BG_NODES[j].y;
+      const d  = Math.sqrt(dx*dx+dy*dy);
+      if (d < thresh) BG_EDGES.push({i, j, a: (1 - d/thresh) * 0.055});
+    }
+  }
+}
+
+function resize() {
+  const hud = document.getElementById('hud');
+  const pw  = document.getElementById('panel').offsetWidth;
+  cv.width  = window.innerWidth - pw;
+  cv.height = window.innerHeight - hud.offsetHeight;
+  computeBackground();
+}
+
+resize();
+window.addEventListener('resize', resize);
+
+/* ────────────────────────────────────
+   HELPERS
+──────────────────────────────────── */
+function nodeXY(id) {
+  const p = NODE_POS[id];
+  if (!p) return {x: cv.width/2, y: cv.height/2};
+  return {x: p.rx * cv.width, y: p.ry * cv.height};
+}
+
+function hexToRGB(h) {
+  return [
+    parseInt(h.slice(1,3),16),
+    parseInt(h.slice(3,5),16),
+    parseInt(h.slice(5,7),16),
+  ];
+}
+
+/* ────────────────────────────────────
+   DRAW — BACKGROUND NEURAL NETWORK
+──────────────────────────────────── */
+function drawBG() {
+  ctx.fillStyle = '#030303';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  BG_EDGES.forEach(({i, j, a}) => {
+    const ni = BG_NODES[i], nj = BG_NODES[j];
+    const breath = ((Math.sin(time*ni.sp + ni.ph) + 1) * 0.5 +
+                    (Math.sin(time*nj.sp + nj.ph) + 1) * 0.5) * 0.5;
+    const alpha = a * (0.5 + breath * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(ni.x, ni.y);
+    ctx.lineTo(nj.x, nj.y);
+    ctx.strokeStyle = `rgba(60,100,220,${alpha})`;
+    ctx.lineWidth = 0.4;
+    ctx.stroke();
+  });
+
+  BG_NODES.forEach(n => {
+    const b = (Math.sin(time * n.sp + n.ph) + 1) * 0.5;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 1.2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(80,140,255,${0.04 + b*0.07})`;
+    ctx.fill();
+  });
+}
+
+/* ────────────────────────────────────
+   DRAW — CONNECTION LINES
+──────────────────────────────────── */
+function drawConnections() {
+  CONNECTIONS.forEach(([a, b]) => {
+    const pa = nodeXY(a), pb = nodeXY(b);
+    const sa = agentState[a]?.status || 'idle';
+    const sb = agentState[b]?.status || 'idle';
+    const isActive = sa !== 'idle' || sb !== 'idle';
+
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    if (isActive) {
+      const pulse = (Math.sin(time * 1.5) + 1) * 0.5;
+      ctx.strokeStyle = `rgba(80,140,255,${0.06 + pulse*0.06})`;
+      ctx.lineWidth = 0.6;
+    } else {
+      ctx.strokeStyle = 'rgba(50,70,140,0.06)';
+      ctx.lineWidth = 0.35;
+    }
+    ctx.stroke();
+  });
+}
+
+/* ────────────────────────────────────
+   DRAW — SINGLE AGENT NODE
+──────────────────────────────────── */
+function drawNode(id) {
+  const {x, y} = nodeXY(id);
+  const r = NODE_R[id] || 16;
+  const st = agentState[id]?.status || 'idle';
+  const col = AGENT_COLOR[id] || '#4a8fff';
+  const [cr, cg, cb] = hexToRGB(col);
+
+  /* — Outer atmospheric glow — */
+  let glowR, ga, gc;
+  if (st === 'idle') {
+    glowR = r * 2.8;
+    ga = 0.08; gc = `${cr},${cg},${cb}`;
+  } else if (st === 'thinking') {
+    const p = (Math.sin(time * 2.2) + 1) * 0.5;
+    glowR = r * 4.5;
+    ga = 0.18 + p * 0.1; gc = '0,212,255';
+  } else {
+    const p = (Math.sin(time * 4) + 1) * 0.5;
+    glowR = r * 6;
+    ga = 0.28 + p * 0.18; gc = '180,80,255';
+  }
+  const og = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+  og.addColorStop(0, `rgba(${gc},${ga})`);
+  og.addColorStop(0.4, `rgba(${gc},${ga*0.4})`);
+  og.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = og;
+  ctx.beginPath();
+  ctx.arc(x, y, glowR, 0, Math.PI*2);
+  ctx.fill();
+
+  /* — Sphere body — */
+  const sg = ctx.createRadialGradient(x - r*.32, y - r*.32, 0, x, y, r);
+  if (st === 'idle') {
+    sg.addColorStop(0, `rgba(${cr},${cg},${cb},0.45)`);
+    sg.addColorStop(0.6, `rgba(${cr*.4|0},${cg*.4|0},${cb*.4|0},0.12)`);
+    sg.addColorStop(1, 'rgba(0,0,0,0.85)');
+  } else if (st === 'thinking') {
+    sg.addColorStop(0, 'rgba(100,240,255,0.9)');
+    sg.addColorStop(0.5, 'rgba(0,160,230,0.25)');
+    sg.addColorStop(1, 'rgba(0,0,0,0.9)');
+  } else {
+    sg.addColorStop(0, 'rgba(230,130,255,0.95)');
+    sg.addColorStop(0.5, 'rgba(140,40,220,0.3)');
+    sg.addColorStop(1, 'rgba(0,0,0,0.92)');
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fillStyle = sg;
+  ctx.fill();
+
+  /* — Rim — */
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  if (st === 'idle') {
+    ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.35)`;
+    ctx.lineWidth = 0.5;
+  } else if (st === 'thinking') {
+    ctx.strokeStyle = 'rgba(0,220,255,0.8)';
+    ctx.lineWidth = 1;
+  } else {
+    ctx.strokeStyle = 'rgba(200,100,255,0.95)';
+    ctx.lineWidth = 1.2;
+  }
+  ctx.stroke();
+
+  /* — Inner specular — */
+  const hg = ctx.createRadialGradient(x-r*.38, y-r*.38, 0, x-r*.38, y-r*.38, r*.65);
+  hg.addColorStop(0, 'rgba(255,255,255,0.22)');
+  hg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+
+  /* — THINKING: orbital rings + pulse waves — */
+  if (st === 'thinking') {
+    const speeds = [0.7, 1.1, 1.6];
+    const radii  = [r*1.38, r*1.70, r*2.08];
+    const arcLen = [Math.PI*1.55, Math.PI*1.30, Math.PI*1.75];
+    const dirs   = [1, -1, 1];
+    const alphas = [0.75, 0.55, 0.40];
+
+    for (let i = 0; i < 3; i++) {
+      const angle = time * speeds[i] * dirs[i];
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.arc(0, 0, radii[i], 0, arcLen[i]);
+      ctx.strokeStyle = `rgba(0,${195+i*18},255,${alphas[i]})`;
+      ctx.lineWidth = 1 - i * 0.22;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      // tip dot
+      ctx.beginPath();
+      ctx.arc(
+        radii[i]*Math.cos(arcLen[i]),
+        radii[i]*Math.sin(arcLen[i]),
+        2.5 - i*0.5, 0, Math.PI*2
+      );
+      ctx.fillStyle = `rgba(120,230,255,${alphas[i]})`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Pulse waves
+    for (let p = 0; p < 4; p++) {
+      const ph  = ((time * 0.45 + p * 0.25) % 1);
+      const pR  = r * (1.1 + ph * 4);
+      const pA  = (1 - ph) * 0.22;
+      ctx.beginPath();
+      ctx.arc(x, y, pR, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(0,195,255,${pA})`;
+      ctx.lineWidth   = 0.7;
+      ctx.stroke();
+    }
+  }
+
+  /* — OUTPUTTING: fast rings + neon pulse — */
+  if (st === 'outputting') {
+    const ringSpeeds = [3.5, 5.5];
+    const ringRadii  = [r*1.55, r*1.95];
+    const ringArcs   = [Math.PI*1.65, Math.PI*1.3];
+    const ringDirs   = [1, -1];
+    for (let i = 0; i < 2; i++) {
+      const angle = time * ringSpeeds[i] * ringDirs[i];
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.arc(0, 0, ringRadii[i], 0, ringArcs[i]);
+      ctx.strokeStyle = `rgba(${200-i*20},${80+i*20},255,${0.85-i*0.2})`;
+      ctx.lineWidth   = 1.3 - i*0.3;
+      ctx.lineCap     = 'round';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(
+        ringRadii[i]*Math.cos(ringArcs[i]),
+        ringRadii[i]*Math.sin(ringArcs[i]),
+        3-i, 0, Math.PI*2
+      );
+      ctx.fillStyle = 'rgba(255,180,255,0.9)';
+      ctx.fill();
+      ctx.restore();
+    }
+    // Breathing outer ring
+    const br = r * (2.4 + Math.sin(time*5)*0.4);
+    const ba = 0.12 + Math.sin(time*5)*0.08;
+    ctx.beginPath();
+    ctx.arc(x, y, br, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(180,60,255,${ba})`;
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+  }
+}
+
+/* ────────────────────────────────────
+   DRAW — NODE LABELS
+──────────────────────────────────── */
+function drawLabels() {
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+
+  Object.keys(NODE_POS).forEach(id => {
+    const {x, y} = nodeXY(id);
+    const r  = NODE_R[id] || 16;
+    const st = agentState[id]?.status || 'idle';
+    const ag = agentMeta[id];
+    if (!ag) return;
+
+    const nameAlpha = st === 'idle' ? 0.35 : 0.9;
+    const roleAlpha = st === 'idle' ? 0.18 : 0.45;
+
+    // Name
+    ctx.font = `200 10px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = st === 'thinking'  ? `rgba(0,212,255,${nameAlpha})`
+                  : st === 'outputting' ? `rgba(200,120,255,${nameAlpha})`
+                  : `rgba(200,215,255,${nameAlpha})`;
+    const shortName = ag.name
+      .replace('AI ','').replace(' コンテンツAI','').replace('AI','');
+    ctx.fillText(shortName, x, y + r + 6);
+
+    // Role
+    ctx.font = `100 8px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = `rgba(120,140,200,${roleAlpha})`;
+    ctx.fillText(ag.role.substring(0,18), x, y + r + 18);
+  });
+}
+
+/* ────────────────────────────────────
+   PARTICLE SYSTEM
+──────────────────────────────────── */
+const MAX_PARTICLES = 120;
+
+function spawnParticle(fromId, toId, isOutput) {
+  if (particles.length >= MAX_PARTICLES) return;
+  particles.push({
+    fromId, toId, isOutput,
+    t: Math.random() * 0.2,
+    speed: 0.003 + Math.random() * 0.004,
+  });
+}
+
+function updateParticles() {
+  // Spawn
+  CONNECTIONS.forEach(([a, b]) => {
+    const sa = agentState[a]?.status || 'idle';
+    const sb = agentState[b]?.status || 'idle';
+    if (sa === 'outputting' && Math.random() < 0.025) spawnParticle(a, b, true);
+    if (sb === 'outputting' && Math.random() < 0.025) spawnParticle(b, a, true);
+    if (sa === 'thinking'   && Math.random() < 0.008) spawnParticle(a, b, false);
+    if (sb === 'thinking'   && Math.random() < 0.008) spawnParticle(b, a, false);
+  });
+
+  // Update + draw
+  const alive = [];
+  particles.forEach(p => {
+    p.t += p.speed;
+    if (p.t >= 1) return;
+
+    const from = nodeXY(p.fromId);
+    const to   = nodeXY(p.toId);
+    const px   = from.x + (to.x - from.x) * p.t;
+    const py   = from.y + (to.y - from.y) * p.t;
+
+    // Trail
+    const TRAIL = 6;
+    for (let tr = TRAIL; tr >= 0; tr--) {
+      const tBack = Math.max(0, p.t - p.speed * tr * 4);
+      const tx = from.x + (to.x - from.x) * tBack;
+      const ty = from.y + (to.y - from.y) * tBack;
+      const ta = (1 - tr / TRAIL) * (p.isOutput ? 0.55 : 0.3);
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.8 - tr * 0.2, 0, Math.PI*2);
+      ctx.fillStyle = p.isOutput
+        ? `rgba(210,140,255,${ta})`
+        : `rgba(80,200,255,${ta})`;
+      ctx.fill();
+    }
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(px, py, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = p.isOutput ? 'rgba(240,180,255,0.95)' : 'rgba(140,230,255,0.95)';
+    ctx.fill();
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(px, py, 1, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+
+    alive.push(p);
+  });
+  particles = alive;
+}
+
+/* ────────────────────────────────────
+   MAIN RENDER LOOP
+──────────────────────────────────── */
+function render(ts) {
+  const dt = Math.min((ts - lastTS) / 1000, 0.05);
+  lastTS = ts;
+  time  += dt;
+
+  drawBG();
+  drawConnections();
+  updateParticles();
+  Object.keys(NODE_POS).forEach(drawNode);
+  drawLabels();
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(ts => { lastTS = ts; requestAnimationFrame(render); });
+
+/* ────────────────────────────────────
+   RIGHT PANEL — BUILD
+──────────────────────────────────── */
+function buildPanel(agList) {
+  const scroll = document.getElementById('panel-scroll');
+  scroll.innerHTML = '';
+
+  const tierOrder = ['executive', 'content', 'ops'];
+  tierOrder.forEach(tier => {
+    const list = agList.filter(a => a.tier === tier);
+    if (!list.length) return;
+
+    const sec = document.createElement('div');
+    sec.className = 'panel-section';
+    sec.textContent = TIER_SECTION[tier] || tier.toUpperCase();
+    scroll.appendChild(sec);
+
+    list.forEach(ag => scroll.appendChild(makeCard(ag)));
+  });
+}
+
+function makeCard(ag) {
+  const d = document.createElement('div');
+  d.className = 'acard idle';
+  d.id = `ac-${ag.id}`;
+  d.style.setProperty('--nc', ag.color || AGENT_COLOR[ag.id] || '#4a8fff');
+  d.innerHTML = `
+    <div class="acard-top">
+      <div class="acard-dot"></div>
+      <div class="acard-names">
+        <div class="acard-name">${ag.name}</div>
+        <div class="acard-role">${ag.role}</div>
+      </div>
+      <span class="acard-badge badge-idle" id="abg-${ag.id}">STANDBY</span>
+    </div>
+    <div class="acard-task" id="atk-${ag.id}">—</div>
+    <div class="acard-foot">
+      <span class="acard-count">TASKS: <b id="atn-${ag.id}">0</b></span>
+      <span id="atm-${ag.id}" style="color:rgba(255,255,255,0.12)">—</span>
+    </div>`;
+  return d;
+}
+
+function updateCard(id, status, task) {
+  const card = document.getElementById(`ac-${id}`);
+  const badge = document.getElementById(`abg-${id}`);
+  const tEl  = document.getElementById(`atk-${id}`);
+  if (!card) return;
+
+  card.className = `acard ${status}`;
+
+  if (status === 'idle') {
+    badge.className   = 'acard-badge badge-idle';
+    badge.textContent = 'STANDBY';
+    tEl.textContent   = '—';
+  } else if (status === 'thinking') {
+    badge.className   = 'acard-badge badge-think';
+    badge.textContent = 'PROCESSING';
+    tEl.textContent   = '▸ ' + (task || '');
+  } else {
+    badge.className   = 'acard-badge badge-output';
+    badge.textContent = 'OUTPUT';
+    tEl.textContent   = '◈ ' + (task || '');
+  }
+}
+
+/* ────────────────────────────────────
+   HUD STATS
+──────────────────────────────────── */
+function refreshStats() {
+  let active = 0, out = 0;
+  Object.values(agentState).forEach(s => {
+    if (s.status === 'thinking')  active++;
+    if (s.status === 'outputting'){ active++; out++; }
+  });
+  document.getElementById('sv-active').textContent = active;
+  document.getElementById('sv-out').textContent    = out;
+  document.getElementById('sv-tasks').textContent  = totalDone;
+  document.getElementById('panel-active-count').textContent =
+    `${active} / ${Object.keys(agentState).length} active`;
+}
+
+/* ────────────────────────────────────
+   ACTIVITY LOG
+──────────────────────────────────── */
+function addLog(agName, msg) {
+  const log = document.getElementById('act-log');
+  const init = log.querySelector('.act-line:only-child');
+  if (init && init.textContent.includes('Initializing')) init.remove();
+
+  const ts = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const d  = document.createElement('div');
+  d.className   = 'act-line fresh';
+  d.textContent = `${ts}  ${agName}  ${(msg||'').substring(0,26)}`;
+  log.appendChild(d);
+  setTimeout(() => d.classList.remove('fresh'), 2000);
+
+  const all = log.querySelectorAll('.act-line');
+  if (all.length > 14) all[0].remove();
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ────────────────────────────────────
+   CLOCK
+──────────────────────────────────── */
+function tickClock() {
+  document.getElementById('hud-clock').textContent =
+    new Date().toLocaleTimeString('ja-JP');
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ────────────────────────────────────
+   WEBSOCKET
+──────────────────────────────────── */
+let ws;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+
+    if (d.type === 'init') {
+      agentMeta  = {};
+      agentState = {};
+      taskCount  = {};
+      totalDone  = 0;
+
+      d.agents.forEach(ag => {
+        agentMeta[ag.id]  = ag;
+        agentState[ag.id] = {status:'idle', current_task:''};
+        taskCount[ag.id]  = 0;
+      });
+      Object.entries(d.states).forEach(([id, s]) => {
+        agentState[id] = s;
+        taskCount[id]  = s.task_count || 0;
+        totalDone     += s.task_count || 0;
+      });
+
+      buildPanel(d.agents);
+      d.agents.forEach(ag =>
+        updateCard(ag.id, agentState[ag.id]?.status || 'idle', '')
+      );
+      document.getElementById('sv-total').textContent = d.agents.length;
+      refreshStats();
+    }
+
+    else if (d.type === 'status') {
+      agentState[d.agent_id] = {status: d.status, current_task: d.current_task};
+      updateCard(d.agent_id, d.status, d.current_task);
+      refreshStats();
+    }
+
+    else if (d.type === 'log') {
+      const diff = d.task_count - (taskCount[d.agent_id] || 0);
+      taskCount[d.agent_id] = d.task_count;
+      totalDone += diff;
+
+      const nEl = document.getElementById(`atn-${d.agent_id}`);
+      if (nEl) nEl.textContent = d.task_count;
+
+      const mEl = document.getElementById(`atm-${d.agent_id}`);
+      if (mEl) mEl.textContent =
+        new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+
+      const nm   = agentMeta[d.agent_id]?.name || d.agent_id;
+      const task = (agentState[d.agent_id]?.current_task || '')
+        .replace('中...','完了').replace('生成中','完了');
+      addLog(nm, task);
+      refreshStats();
+    }
+  };
+
+  ws.onclose = () => setTimeout(connect, 3000);
+  setInterval(() => ws.readyState === 1 && ws.send('ping'), 20000);
+}
+
+connect();
+</script>
+</body>
+</html>
