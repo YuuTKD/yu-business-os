@@ -590,6 +590,34 @@ def save_gcs_url(
         print(f"  ⚠ save_gcs_url 失敗 ({image_id}): {e}")
 
 
+def add_missing_columns(creds_path: str = None) -> dict:
+    """
+    METADATA_HEADERS に定義された列が IMAGE_LIBRARY に不足している場合に追加する。
+    既存列は変更しない。不足列のみ末尾に追加。
+    """
+    if creds_path is None:
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "/app/credentials.json")
+    gc = get_gc(creds_path)
+    ss = gc.open_by_key(METADATA_SPREADSHEET_ID)
+    sh = ss.worksheet(METADATA_SHEET)
+    existing = [h for h in sh.row_values(1) if h]
+
+    missing = [h for h in METADATA_HEADERS if h not in existing]
+    if not missing:
+        return {"ok": True, "added": 0, "message": "追加列なし（全列存在）", "total": len(existing)}
+
+    start_col = len(existing) + 1
+    for i, col_name in enumerate(missing):
+        sh.update_cell(1, start_col + i, col_name)
+
+    return {
+        "ok": True,
+        "added": len(missing),
+        "columns": missing,
+        "total_after": len(existing) + len(missing),
+    }
+
+
 # ─────────────────────────────────────────────────────
 # 手動登録
 # ─────────────────────────────────────────────────────

@@ -2169,6 +2169,17 @@ def threads_auto_post():
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/add-image-library-columns", methods=["POST", "GET"])
+def add_image_library_columns():
+    """IMAGE_LIBRARY に不足列（gcs_public_url 等）を追加する。初回セットアップ時に1回だけ実行。"""
+    try:
+        from core.image_manager import add_missing_columns
+        result = add_missing_columns(CREDS_PATH)
+        return jsonify(result), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/threads-auto-post-status", methods=["GET", "POST"])
 def threads_auto_post_status():
     """本日の自動投稿 pending / 投稿済み件数を確認"""

@@ -238,10 +238,18 @@ def run(
     target_date   : "YYYY-MM-DD"（省略時は本日）
     """
     from core.threads_api import publish_text, publish_image, resolve_biz
+    from core.line_alert import send_threads_alert as _alert
+
+    def _do_alert(alert_type: str, biz_key: str, **kwargs):
+        try:
+            _alert(alert_type, biz_key, dry_run=dry_run, ss_id=ss_id, creds_path=creds_path, **kwargs)
+        except Exception:
+            pass  # アラート失敗で投稿フローを止めない
 
     pending = get_pending(ss_id, creds_path, target_date)
 
     if not pending:
+        _do_alert("no_candidate", "all", business_name="全事業（未投稿行なし）")
         return {"ok": True, "dry_run": dry_run, "posted": 0,
                 "pending": 0, "message": "投稿対象なし（SNS_POST_STOCK に未投稿行がありません）"}
 
@@ -313,22 +321,31 @@ def run(
             res = publish_text(ss_id, creds_path, valid_key, text)
 
         # SNS_POST_STOCK 書き戻し（成功時のみ）
+        permalink = res.get("permalink", "")
         if res.get("ok"):
             ri = p["row_index"]
             if col("status"):
                 ws.update_cell(ri, col("status"), DONE_STATUS)
             if col("posted_date"):
                 ws.update_cell(ri, col("posted_date"), _today())
-            permalink = res.get("permalink", "")
             if permalink and col("posted_url"):
                 ws.update_cell(ri, col("posted_url"), permalink)
             posted_per_biz[bk] = posted_per_biz.get(bk, 0) + 1
+            _do_alert("success", bk,
+                      business_name=biz_name,
+                      permalink=permalink,
+                      text_length=len(text))
+        else:
+            _do_alert("post_failed", bk,
+                      business_name=biz_name,
+                      error_message=res.get("error", "不明"),
+                      post_candidate_id=p.get("post_no") or p["row_index"])
 
         results.append({
             "business":      biz_name,
             "ok":            res.get("ok", False),
             "media_id":      res.get("media_id", ""),
-            "permalink":     res.get("permalink", ""),
+            "permalink":     permalink,
             "had_image":     bool(image_url),
             "auto_selected": auto_selected,
             "error":         res.get("error", ""),
