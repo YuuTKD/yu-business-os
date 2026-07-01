@@ -698,6 +698,57 @@ def run(business_key: str = None, creds_path: str = None, line_token: str = None
                     image_sent = _send_line_image(line_token, original_url, thumbnail_url)
                 line_ok = text_ok
 
+            # ── STEP4b: Threads 自動投稿（Threads投稿シートのみ）──────
+            threads_ok = False
+            threads_permalink = ""
+            if media == "Threads投稿":
+                print(f"    [STEP4b] Threads投稿...")
+                _THREADS_BIZ = {
+                    "beauty": "beauty", "catering": "catering",
+                    "tachinomiya": "tachinomiya",
+                    "hinabe": "ryukyu_hinabe", "ryukyu_hinabe": "ryukyu_hinabe",
+                }
+                threads_biz = _THREADS_BIZ.get(business_key)
+                threads_ss  = os.getenv("GOOGLE_SPREADSHEET_ID", "")
+                post_text   = (body or title).strip()
+
+                if not threads_biz:
+                    print(f"    ⚠ Threads未対応事業: {business_key}")
+                elif not threads_ss:
+                    print(f"    ⚠ GOOGLE_SPREADSHEET_ID 未設定")
+                elif not post_text:
+                    print(f"    ⚠ 投稿テキストが空")
+                else:
+                    # 画像なし → Drive から自動選定して GCS アップロード
+                    post_image_url = original_url if image_ok else ""
+                    if not post_image_url:
+                        print(f"    [画像自動選定] Drive から検索中...")
+                        try:
+                            from core.threads_auto_post import _resolve_image_for_threads
+                            post_image_url = _resolve_image_for_threads(
+                                threads_biz, post_text, creds_path
+                            )
+                        except Exception as ie:
+                            print(f"    ⚠ 画像自動選定失敗: {ie}")
+
+                    try:
+                        from core.threads_api import publish_image as _t_publish_image
+                        from core.threads_api import publish_text as _t_publish_text
+                        if post_image_url:
+                            tres = _t_publish_image(
+                                threads_ss, creds_path, threads_biz, post_text, post_image_url
+                            )
+                        else:
+                            tres = _t_publish_text(threads_ss, creds_path, threads_biz, post_text)
+                        threads_ok = tres.get("ok", False)
+                        threads_permalink = tres.get("permalink", "")
+                        if threads_ok:
+                            print(f"    ✅ Threads投稿完了: {threads_permalink}")
+                        else:
+                            print(f"    ❌ Threads投稿失敗: {tres.get('error', '')}")
+                    except Exception as te:
+                        print(f"    ❌ Threads投稿エラー: {te}")
+
             # ── STEP5: ステータス更新（画像付き通知成功のみ「通知済み」）────
             # 要件: 画像+テキスト両方成功→通知済み / 画像失敗→画像エラー・再送待ち
             status_ok = False
@@ -729,16 +780,21 @@ def run(business_key: str = None, creds_path: str = None, line_token: str = None
                 print(f"    ⚠ LINE送信失敗のためステータスを未通知のまま保持")
 
             # ── STEP7: SYSTEM_LOG ───────────────────────────────
+            log_error = error_msg
+            if media == "Threads投稿" and not threads_ok:
+                log_error = (log_error + " | Threads投稿失敗").lstrip(" | ")
             _write_log(gc_client, ss_id, {
                 "dt": now_str, "biz": biz_name, "media": media,
                 "title": title, "image_ok": image_ok,
                 "line_ok": line_ok, "status_ok": status_ok,
-                "error": error_msg,
+                "error": log_error,
             })
 
             results.append({
                 "media": media, "title": title[:40],
                 "image_ok": image_ok, "line_ok": line_ok, "status_ok": status_ok,
+                "threads_ok": threads_ok,
+                "threads_permalink": threads_permalink,
             })
 
             time.sleep(1)  # API負荷軽減

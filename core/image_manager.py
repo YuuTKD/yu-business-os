@@ -51,10 +51,11 @@ FOLDER_MAP = {
 }
 
 BIZ_KEY_MAP = {
-    "beauty":      "BEAUTY",
-    "catering":    "CATERING",
-    "tachinomiya": "TACHINOMIYA",
-    "hinabe":      "HINABE",
+    "beauty":        "BEAUTY",
+    "catering":      "CATERING",
+    "tachinomiya":   "TACHINOMIYA",
+    "hinabe":        "HINABE",
+    "ryukyu_hinabe": "HINABE",
 }
 
 SEASON_MAP = {
