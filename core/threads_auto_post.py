@@ -286,7 +286,7 @@ def run(
         auto_selected = False
         if not image_url:
             print(f"  [画像自動選定] {biz_name}...")
-            image_url = _resolve_image_for_threads(biz_key, text, creds_path)
+            image_url = _resolve_image_for_threads(bk, text, creds_path)
             auto_selected = bool(image_url)
 
         # 投稿実行
