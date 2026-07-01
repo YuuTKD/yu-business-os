@@ -97,7 +97,7 @@ SNS_POST_STOCK_HEADER = [
     "post_id", "business_name", "platform", "post_no", "original_text",
     "current_text", "post_type", "target_stage", "customer_pain", "hook_text",
     "cta", "status", "scheduled_date", "posted_date", "posted_url",
-    "rewrite_version", "memo",
+    "rewrite_version", "memo", "image_url",
 ]
 
 

@@ -2143,6 +2143,123 @@ def threads_publish_image_ep():
     except Exception as e:
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route("/threads-auto-post", methods=["POST", "GET"])
+def threads_auto_post():
+    """
+    SNS_POST_STOCK の未投稿Threads記事を4事業まとめて自動投稿。
+    Cloud Scheduler から毎日 11:00 JST に呼ばれる。
+
+    POST body（全て省略可）:
+      {"dry_run": false, "max_per_biz": 1, "date": "2026-07-01"}
+
+    dry_run=true（デフォルト）: 投稿せず pending 一覧を返す
+    dry_run=false             : 実際に投稿し status を「投稿済み」に更新
+    max_per_biz               : 1事業あたり最大投稿数（デフォルト1）
+    """
+    try:
+        from core.threads_auto_post import run as auto_run
+        data        = request.get_json(silent=True) or {}
+        dry_run     = bool(data.get("dry_run", True))
+        max_per_biz = int(data.get("max_per_biz", 1))
+        date        = data.get("date") or None
+        r = auto_run(_cf_ss(), CREDS_PATH,
+                     dry_run=dry_run, max_per_biz=max_per_biz, target_date=date)
+        return jsonify(r), 200 if r.get("ok") else 207
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-auto-post-status", methods=["GET", "POST"])
+def threads_auto_post_status():
+    """本日の自動投稿 pending / 投稿済み件数を確認"""
+    try:
+        from core.threads_auto_post import get_status as auto_status
+        return jsonify(auto_status(_cf_ss(), CREDS_PATH)), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-stock-add", methods=["POST"])
+def threads_stock_add():
+    """
+    SNS_POST_STOCK に Threads 投稿予定行を追加する。
+
+    POST body:
+      {
+        "business":       "catering",          // biz_key または表示名
+        "text":           "投稿テキスト",
+        "image_url":      "https://...",        // 省略可
+        "scheduled_date": "2026-07-02",         // 省略可（空=即日）
+        "post_no":        "001"                 // 省略可
+      }
+    """
+    try:
+        from core.threads_api import resolve_biz, BIZ_NAME, SNS_POST_STOCK_HEADER
+        import gspread as _gs
+        from google.oauth2.service_account import Credentials as _Creds
+        from datetime import datetime, timezone, timedelta
+
+        data = request.get_json(silent=True) or {}
+        biz_input = data.get("business", "")
+        biz_key, err = resolve_biz(biz_input)
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+
+        text = (data.get("text", "") or "").strip()
+        if not text:
+            return jsonify({"ok": False, "error": "text は必須です"}), 400
+
+        image_url      = (data.get("image_url", "") or "").strip()
+        scheduled_date = (data.get("scheduled_date", "") or "").strip()
+        post_no        = (data.get("post_no", "") or "").strip()
+        biz_name       = BIZ_NAME.get(biz_key, biz_key)
+
+        jst = timezone(timedelta(hours=9))
+        today = datetime.now(jst).strftime("%Y-%m-%d")
+
+        creds = _Creds.from_service_account_file(
+            CREDS_PATH,
+            scopes=["https://www.googleapis.com/auth/spreadsheets",
+                    "https://www.googleapis.com/auth/drive"],
+        )
+        gc = _gs.authorize(creds)
+        ss = gc.open_by_key(_cf_ss())
+
+        try:
+            ws = ss.worksheet("SNS_POST_STOCK")
+        except _gs.WorksheetNotFound:
+            ws = ss.add_worksheet(title="SNS_POST_STOCK", rows=1000, cols=20)
+            header = SNS_POST_STOCK_HEADER + ["image_url"]
+            ws.update(values=[header], range_name="A1")
+
+        header = ws.row_values(1)
+        def col(name): return header.index(name) + 1 if name in header else None
+
+        row_data = {h: "" for h in header}
+        row_data["business_name"]  = biz_name
+        row_data["platform"]       = "Threads投稿"
+        row_data["post_no"]        = post_no
+        row_data["original_text"]  = text
+        row_data["current_text"]   = text
+        row_data["status"]         = "未投稿"
+        row_data["scheduled_date"] = scheduled_date or today
+        row_data["memo"]           = image_url if image_url and "image_url" not in header else ""
+        if "image_url" in header:
+            row_data["image_url"]  = image_url
+
+        ws.append_row([row_data.get(h, "") for h in header], value_input_option="RAW")
+
+        return jsonify({
+            "ok": True,
+            "business": biz_name,
+            "scheduled_date": scheduled_date or today,
+            "has_image": bool(image_url),
+            "text_preview": text[:60],
+        }), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/threads-insights-sync-all", methods=["POST", "GET"])
 def threads_insights_sync_all():
     """4事業のThreadsインサイトを一括同期"""

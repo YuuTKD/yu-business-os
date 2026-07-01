@@ -98,7 +98,7 @@ BUSINESSES: dict[str, BusinessConfig] = {
             "staff": {"env_key": "CATERING_LINE_STAFF_TOKEN", "broadcast_ok": True},
             "customer": {"env_key": "CATERING_LINE_CUSTOMER_TOKEN", "broadcast_ok": True},
         },
-        "platforms": ["google", "instagram", "line"],
+        "platforms": ["google", "instagram", "threads", "line"],
         "csv_sources": ["airegi"],
         "business_type": "catering",
         "cloud_run_service": "trees-catering-ai",
