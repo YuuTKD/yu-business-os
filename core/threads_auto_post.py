@@ -95,12 +95,13 @@ def _extract_image_url(row: dict) -> str:
 def _resolve_image_for_threads(biz_key: str, text: str, creds_path: str) -> str:
     """
     Drive IMAGE_LIBRARY から投稿テキストに最も合う実写画像を AI が選定し、
-    GCS にアップロードして公開 HTTPS URL を返す。
+    GCS 公開 HTTPS URL を返す。
 
-    画像なし・アップロード失敗時は "" を返す（呼び出し元でテキスト投稿にフォールバック）。
+    gcs_public_url が IMAGE_LIBRARY に保存済みなら再アップロードをスキップする。
+    画像なし・アップロード失敗時は "" を返す（テキスト投稿は呼び出し元で判断）。
     """
     try:
-        from core.image_manager import select_real_image, fetch_drive_image_bytes, track_usage
+        from core.image_manager import select_real_image, fetch_drive_image_bytes, track_usage, save_gcs_url
         from google.cloud import storage as gcs_lib
 
         lib_key = _BIZ_TO_LIB.get(biz_key, biz_key.upper())
@@ -109,12 +110,23 @@ def _resolve_image_for_threads(biz_key: str, text: str, creds_path: str) -> str:
             print(f"  ℹ {biz_key}: 実写画像なし → テキスト投稿")
             return ""
 
+        # ── GCS URL キャッシュ確認（再アップロード不要なら即返す） ──
+        cached_url = selected.get("gcs_public_url", "")
+        if cached_url and cached_url.startswith("https://storage.googleapis.com/"):
+            print(f"  ✅ GCS キャッシュ利用: {selected['filename']} ({selected['category']})")
+            try:
+                track_usage(selected["image_id"], "Threads", text[:100],
+                            selected.get("score", 0), creds_path)
+            except Exception:
+                pass
+            return cached_url
+
+        # ── Drive DL → PIL変換 → GCS アップロード ──
         image_bytes = fetch_drive_image_bytes(selected["drive_file_id"], creds_path)
         if not image_bytes:
             print(f"  ⚠ {biz_key}: Drive DL 失敗 → テキスト投稿")
             return ""
 
-        # JPEG 変換（Threads API 推奨形式）
         try:
             from PIL import Image as PILImage
             img = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -124,7 +136,6 @@ def _resolve_image_for_threads(biz_key: str, text: str, creds_path: str) -> str:
         except Exception:
             pass
 
-        # GCS アップロード → 公開 HTTPS URL
         today = _today()
         fname_safe = re.sub(r"[^\w\-.]", "_", selected["filename"][:20])
         gcs_path = f"content/threads/{biz_key}/{today}_{fname_safe}.jpg"
@@ -134,7 +145,13 @@ def _resolve_image_for_threads(biz_key: str, text: str, creds_path: str) -> str:
 
         public_url = f"https://storage.googleapis.com/{GCS_BUCKET}/{quote(gcs_path, safe='/')}"
 
-        # IMAGE_LIBRARY に利用記録
+        # IMAGE_LIBRARY に GCS URL 保存（次回再利用のため）
+        try:
+            save_gcs_url(selected["image_id"], public_url, gcs_path, creds_path=creds_path)
+        except Exception:
+            pass
+
+        # 利用記録
         try:
             track_usage(selected["image_id"], "Threads", text[:100],
                         selected.get("score", 0), creds_path)

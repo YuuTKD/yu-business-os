@@ -64,9 +64,18 @@ SEASON_MAP = {
 }
 
 METADATA_HEADERS = [
+    # 既存 16 列（変更不可）
     "画像ID", "ファイル名", "Drive URL", "Drive ファイルID",
     "事業名", "カテゴリ", "サブカテゴリ", "季節", "媒体タグ",
     "ALT テキスト", "撮影日", "登録日", "利用回数", "最終利用日", "ソース", "備考",
+    # 追加 22 列（GCS再利用・品質管理）
+    "gcs_public_url", "gcs_path", "business_key", "image_usage",
+    "content_type", "file_size_bytes", "file_size_mb", "width", "height",
+    "is_public_url_valid", "http_status", "usage_status",
+    "needs_compression", "compression_status",
+    "can_use_for_threads", "can_use_for_instagram",
+    "ng_reason", "quality_score", "brand_fit_score",
+    "updated_at", "last_post_url", "last_post_id",
 ]
 
 STATS_HEADERS = [
@@ -471,6 +480,8 @@ def _build_result(record: dict, score: float, reason: str) -> dict:
         "score":         score,
         "reason":        reason,
         "source":        "real",
+        "gcs_public_url": str(record.get("gcs_public_url", "") or "").strip(),
+        "gcs_path":       str(record.get("gcs_path", "") or "").strip(),
     }
 
 
@@ -528,6 +539,55 @@ def track_usage(
 
     st.append_row([now, image_id, filename, business, category, platform, post_excerpt[:100], score])
     print(f"  ✅ 利用記録: {image_id} → {platform}")
+
+
+def save_gcs_url(
+    image_id: str,
+    gcs_public_url: str,
+    gcs_path: str = "",
+    post_url: str = "",
+    post_id: str = "",
+    creds_path: str = None,
+):
+    """GCS アップロード後に IMAGE_LIBRARY へ URL を保存する。次回以降の再アップロードを防ぐ。"""
+    if creds_path is None:
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "/app/credentials.json")
+    try:
+        gc = get_gc(creds_path)
+        ss = gc.open_by_key(METADATA_SPREADSHEET_ID)
+        sh = ss.worksheet(METADATA_SHEET)
+        header = sh.row_values(1)
+        cell = sh.find(image_id, in_column=1)
+        if not cell:
+            print(f"  ⚠ save_gcs_url: {image_id} が IMAGE_LIBRARY に見つからない")
+            return
+
+        def _col(name):
+            try:
+                return header.index(name) + 1
+            except ValueError:
+                return None
+
+        now = datetime.datetime.now().strftime("%Y/%m/%d %H:%M")
+        row = cell.row
+        updates = [
+            ("gcs_public_url", gcs_public_url),
+            ("gcs_path",       gcs_path),
+            ("updated_at",     now),
+        ]
+        if post_url:
+            updates.append(("last_post_url", post_url))
+        if post_id:
+            updates.append(("last_post_id", post_id))
+
+        for col_name, val in updates:
+            c = _col(col_name)
+            if c:
+                sh.update_cell(row, c, val)
+
+        print(f"  ✅ GCS URL 保存: {image_id} → {gcs_public_url[:60]}...")
+    except Exception as e:
+        print(f"  ⚠ save_gcs_url 失敗 ({image_id}): {e}")
 
 
 # ─────────────────────────────────────────────────────
