@@ -2129,6 +2129,72 @@ def gbp_localpost_create_ep():
     except Exception as e:
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route("/threads-auto-post-full", methods=["POST"])
+def threads_auto_post_full_ep():
+    """
+    12段階安全チェック付き自動投稿。
+    body: {business, dry_run: bool (default true), biz_keys: [list] (省略時は business)}
+    dry_run=true の間は絶対に本番投稿しない。
+    """
+    try:
+        from core.threads_api import run_full_auto, resolve_biz
+        data = request.get_json(silent=True) or {}
+        dry_run = bool(data.get("dry_run", True))
+        biz_keys_raw = data.get("biz_keys") or ([data.get("business", "")] if data.get("business") else [])
+        if not biz_keys_raw:
+            return jsonify({"ok": False, "error": "business または biz_keys が必要"}), 400
+        results = {}
+        for b in biz_keys_raw:
+            key, err = resolve_biz(b)
+            if err:
+                results[b] = {"ok": False, "error": err}
+                continue
+            results[key] = run_full_auto(_cf_ss(), CREDS_PATH, key, dry_run=dry_run)
+        all_ok = all(v.get("ok") for v in results.values())
+        return jsonify({"ok": all_ok, "results": results, "dry_run": dry_run}), 200 if all_ok else 207
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-auto-post-config", methods=["GET"])
+def threads_auto_post_config_ep():
+    """自動投稿設定一覧（secret/token非表示）"""
+    try:
+        from configs.auto_post_settings import BUSINESS_AUTO_POST_CONFIG, SCHEDULER_PLAN
+        safe = {}
+        for k, v in BUSINESS_AUTO_POST_CONFIG.items():
+            safe[k] = {kk: vv for kk, vv in v.items()}
+        return jsonify({"ok": True, "config": safe, "scheduler_plan": SCHEDULER_PLAN}), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-post-quality-check", methods=["POST"])
+def threads_post_quality_check_ep():
+    """投稿テキストの品質スコアチェック。body: {text, business}"""
+    try:
+        from core.post_quality import score
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "")
+        business = data.get("business", "")
+        if not text:
+            return jsonify({"ok": False, "error": "text が必要"}), 400
+        result = score(text, business)
+        return jsonify({"ok": True, **result}), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-auto-post-ready-check", methods=["GET"])
+def threads_auto_post_ready_check_ep():
+    """全事業の自動投稿準備状況チェック（投稿なし）"""
+    try:
+        from core.threads_api import auto_post_ready_check
+        return jsonify(auto_post_ready_check(_cf_ss(), CREDS_PATH)), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/threads-publish-image", methods=["POST"])
 def threads_publish_image_ep():
     """画像付きThreads投稿。body: {business, text, image_url}（公開HTTPS）"""

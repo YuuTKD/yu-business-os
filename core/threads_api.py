@@ -563,3 +563,444 @@ def accounts_status(ss_id, creds_path) -> dict:
                     "expires_at": r.get("expires_at"), "last_sync": r.get("last_sync")})
     return {"ok": True, "connected": out, "count": len(out),
             "configured": is_configured()}
+
+
+# ── 自動投稿サポート関数 ──────────────────────────────────────
+
+THREADS_POST_LOG_SHEET = "THREADS_POST_LOG"
+THREADS_POST_LOG_HEADER = [
+    "実行日時", "事業キー", "事業名", "media_id", "post_url",
+    "投稿本文", "画像URL", "画像ID", "投稿元行番号", "品質スコア",
+    "dry_run", "実行結果", "エラー詳細", "token_check", "duplicate_check", "実行者",
+]
+
+IMAGE_LIBRARY_SS = "15cfsC2HIzu1FGW602dxqNuv-DJpmLiZhatvB-hDn2XM"
+IMAGE_LIBRARY_SHEET = "画像台帳"
+# 画像台帳カラムインデックス（0始まり）
+_IMG_COL = {
+    "画像ID": 0, "ファイル名": 1, "Drive URL": 2, "Drive ファイルID": 3,
+    "事業名": 4, "カテゴリ": 5, "利用回数": 12, "最終利用日": 13,
+    "gcs_public_url": 16,  # PHASE2で追加予定の列（存在しない場合は空）
+}
+
+
+def _img_lib_gc(creds_path):
+    creds = Credentials.from_service_account_file(
+        creds_path, scopes=["https://www.googleapis.com/auth/spreadsheets",
+                            "https://www.googleapis.com/auth/drive"])
+    return gspread.authorize(creds)
+
+
+def validate_image_url(url: str) -> dict:
+    """公開HTTPS画像URLが実際にアクセス可能か確認（HEAD request）"""
+    import urllib.request
+    if not url or not url.startswith("https://"):
+        return {"ok": False, "status": 0, "reason": "HTTPSでない"}
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        req.add_header("User-Agent", "YU-Holdings-Bot/1.0")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            ct = resp.headers.get("Content-Type", "")
+            status = resp.status
+            if status == 200 and ("image" in ct or ct == ""):
+                return {"ok": True, "status": status, "content_type": ct}
+            return {"ok": False, "status": status, "reason": f"Content-Type={ct}"}
+    except Exception as e:
+        return {"ok": False, "status": 0, "reason": str(e)[:100]}
+
+
+def check_token_expiry(acc: dict, warn_days: int = 7) -> dict:
+    """
+    トークン期限チェック。expires_at が warn_days 日以内なら警告。
+    Threads長期トークンは60日有効。
+    """
+    expires_at = acc.get("expires_at", "")
+    if not expires_at:
+        return {"ok": True, "status": "unknown", "warn": False}
+    try:
+        exp = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        days_left = (exp - now).days
+        if days_left < 0:
+            return {"ok": False, "status": "expired", "days_left": days_left, "warn": True}
+        if days_left <= warn_days:
+            return {"ok": True, "status": "expiring_soon", "days_left": days_left, "warn": True}
+        return {"ok": True, "status": "valid", "days_left": days_left, "warn": False}
+    except Exception as e:
+        return {"ok": True, "status": f"parse_error:{e}", "warn": False}
+
+
+def check_duplicate_post(ss, biz_key: str, stock_row_no: str) -> bool:
+    """
+    THREADS_POST_LOG に同じ投稿元行番号・同じ事業の投稿済みレコードがあれば True（重複）。
+    """
+    try:
+        ws = _sheet(ss, THREADS_POST_LOG_SHEET, THREADS_POST_LOG_HEADER)
+        rows = ws.get_all_values()[1:]
+        for r in rows:
+            if len(r) >= 9 and r[1] == biz_key and str(r[8]) == str(stock_row_no):
+                if r[11] not in ("DRY_RUN", "ERROR", ""):
+                    return True
+    except Exception:
+        pass
+    return False
+
+
+def count_today_posts(ss, biz_key: str) -> int:
+    """今日の実投稿数（dry_run=False かつ成功）を返す"""
+    today = _date()
+    count = 0
+    try:
+        ws = _sheet(ss, THREADS_POST_LOG_SHEET, THREADS_POST_LOG_HEADER)
+        for r in ws.get_all_values()[1:]:
+            if len(r) >= 12 and r[1] == biz_key:
+                dt = str(r[0])[:10]
+                dry = str(r[10]).upper()
+                result = str(r[11])
+                if dt == today and dry != "TRUE" and result == "SUCCESS":
+                    count += 1
+    except Exception:
+        pass
+    return count
+
+
+def count_consecutive_errors(ss, biz_key: str) -> int:
+    """直近の連続エラー数（最新行から遡って SUCCESS が出るまでの ERROR 数）"""
+    count = 0
+    try:
+        ws = _sheet(ss, THREADS_POST_LOG_SHEET, THREADS_POST_LOG_HEADER)
+        rows = [r for r in ws.get_all_values()[1:] if len(r) >= 12 and r[1] == biz_key
+                and str(r[10]).upper() != "TRUE"]  # dry_run除外
+        for r in reversed(rows):
+            result = str(r[11])
+            if result == "SUCCESS":
+                break
+            if result == "ERROR":
+                count += 1
+    except Exception:
+        pass
+    return count
+
+
+def is_in_posting_window(window: tuple) -> bool:
+    """現在時刻が投稿許可ウィンドウ内か判定 (JST)"""
+    now = datetime.now(JST)
+    cur = now.strftime("%H:%M")
+    return window[0] <= cur <= window[1]
+
+
+def _select_best_stock_row(ss, biz_key: str, min_score: int = 0) -> dict:
+    """
+    SNS_POST_STOCK から未投稿の最高スコア行を1件選ぶ。
+    Returns {"row_no": int, "text": str, "score": int, "post_id": str} or None
+    """
+    from core.post_quality import score as qs
+    biz_name_map = {
+        "catering": "TREE's Catering", "tachinomiya": "TACHINOMIYA",
+        "beauty": "Tree Beauty", "ryukyu_hinabe": "琉球火鍋",
+    }
+    biz_name = biz_name_map.get(biz_key, biz_key)
+    try:
+        ws = _sheet(ss, "SNS_POST_STOCK", SNS_POST_STOCK_HEADER)
+        rows = ws.get_all_values()
+        header = rows[0] if rows else []
+        # カラム位置
+        ci = {h: i for i, h in enumerate(header)}
+        biz_col = ci.get("business_name", 1)
+        text_col = ci.get("current_text", 5)
+        status_col = ci.get("status", 11)
+        postid_col = ci.get("post_id", 0)
+
+        candidates = []
+        for i, r in enumerate(rows[1:], start=2):
+            if len(r) <= max(biz_col, text_col, status_col):
+                continue
+            if r[biz_col] != biz_name:
+                continue
+            if r[status_col] in ("投稿済み", "済み", "posted", "POSTED"):
+                continue
+            text = r[text_col]
+            if not text.strip():
+                continue
+            s = qs(text, biz_key)
+            candidates.append({
+                "row_no": i, "text": text, "score": s["score"],
+                "post_id": r[postid_col] if len(r) > postid_col else "",
+                "ng_reason": s.get("ng_reason", ""),
+            })
+
+        candidates = [c for c in candidates if not c["ng_reason"] and c["score"] >= min_score]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates[0]
+    except Exception as e:
+        return None
+
+
+def _select_image(creds_path: str, biz_key: str) -> dict:
+    """
+    IMAGE_LIBRARY から未使用（利用回数0 or 最少）の画像を選ぶ。
+    gcs_public_url があればそのまま使用。なければ Drive URL を返す（GCS化が必要）。
+    Returns {"image_id": str, "url": str, "needs_gcs": bool, "file_name": str} or None
+    """
+    biz_name_map = {
+        "catering": "CATERING", "tachinomiya": "TACHINOMIYA",
+        "beauty": "BEAUTY", "ryukyu_hinabe": "HINABE",
+    }
+    biz_name = biz_name_map.get(biz_key, biz_key.upper())
+    try:
+        gc = _img_lib_gc(creds_path)
+        ws = gc.open_by_key(IMAGE_LIBRARY_SS).worksheet(IMAGE_LIBRARY_SHEET)
+        rows = ws.get_all_values()
+        if not rows or len(rows) < 2:
+            return None
+        header = rows[0]
+        ci = {h: i for i, h in enumerate(header)}
+
+        img_id_col = ci.get("画像ID", 0)
+        fname_col = ci.get("ファイル名", 1)
+        drive_url_col = ci.get("Drive URL", 2)
+        biz_col = ci.get("事業名", 4)
+        usage_col = ci.get("利用回数", 12)
+        gcs_col = ci.get("gcs_public_url", -1)
+
+        candidates = []
+        for r in rows[1:]:
+            if not r or len(r) <= biz_col:
+                continue
+            if r[biz_col] != biz_name:
+                continue
+            image_id = r[img_id_col] if len(r) > img_id_col else ""
+            fname = r[fname_col] if len(r) > fname_col else ""
+            drive_url = r[drive_url_col] if len(r) > drive_url_col else ""
+            gcs_url = (r[gcs_col] if gcs_col >= 0 and len(r) > gcs_col else "") or ""
+            usage = 0
+            try:
+                usage = int(r[usage_col]) if len(r) > usage_col and r[usage_col] else 0
+            except ValueError:
+                usage = 0
+            candidates.append({
+                "image_id": image_id, "file_name": fname,
+                "drive_url": drive_url, "gcs_url": gcs_url, "usage": usage,
+            })
+
+        if not candidates:
+            return None
+        # gcs_url があるものを優先、利用回数少ない順
+        with_gcs = [c for c in candidates if c["gcs_url"].startswith("https://")]
+        pool = with_gcs if with_gcs else candidates
+        pool.sort(key=lambda x: x["usage"])
+        best = pool[0]
+        url = best["gcs_url"] if best["gcs_url"].startswith("https://") else best["drive_url"]
+        needs_gcs = not best["gcs_url"].startswith("https://")
+        return {
+            "image_id": best["image_id"], "url": url,
+            "needs_gcs": needs_gcs, "file_name": best["file_name"],
+        }
+    except Exception as e:
+        return None
+
+
+def _log_post_result(ss, biz_key: str, biz_name: str, media_id: str, post_url: str,
+                     text: str, image_url: str, image_id: str, stock_row_no,
+                     quality_score: int, dry_run: bool, result: str, error: str = "",
+                     token_check: str = "ok", dup_check: str = "ok"):
+    """THREADS_POST_LOG にログを1行追記"""
+    ws = _sheet(ss, THREADS_POST_LOG_SHEET, THREADS_POST_LOG_HEADER)
+    ws.append_row([
+        _now(), biz_key, biz_name, media_id, post_url,
+        text[:200], image_url, image_id, str(stock_row_no), quality_score,
+        "TRUE" if dry_run else "FALSE", result, error[:200],
+        token_check, dup_check, "AUTO",
+    ], value_input_option="RAW")
+
+
+def run_full_auto(ss_id: str, creds_path: str, biz_key: str, dry_run: bool = True) -> dict:
+    """
+    12段階安全チェック付き完全自動投稿。
+    dry_run=True（既定）: 実際には投稿せずプレビューのみ返す。
+    dry_run=False: 本番投稿（configs/auto_post_settings.py の auto_post_enabled=True 必須）。
+    """
+    import os
+    from configs.auto_post_settings import BUSINESS_AUTO_POST_CONFIG, MASTER_SWITCH_ENV
+
+    gc = _gc(creds_path)
+    ss = gc.open_by_key(ss_id)
+    biz_name = BIZ_NAME.get(biz_key, biz_key)
+
+    checks = []
+
+    def fail(step: str, reason: str, **kw):
+        checks.append({"step": step, "ok": False, "reason": reason})
+        return {"ok": False, "step_failed": step, "reason": reason, "checks": checks,
+                "biz_key": biz_key, "dry_run": dry_run, **kw}
+
+    def ok_step(step: str, note: str = ""):
+        checks.append({"step": step, "ok": True, "note": note})
+
+    # 1. マスタースイッチ
+    master = os.getenv(MASTER_SWITCH_ENV, "true").lower()
+    if master == "false":
+        return fail("master_switch", "AUTO_POST_MASTER_SWITCH=false → 全停止中")
+    ok_step("master_switch", "true")
+
+    # 2. 事業別ON/OFFスイッチ（dry_run時はスキップ）
+    cfg = BUSINESS_AUTO_POST_CONFIG.get(biz_key, {})
+    if not cfg:
+        return fail("biz_config", f"{biz_key} の設定が存在しない")
+    if not dry_run and not cfg.get("auto_post_enabled", False):
+        return fail("biz_enabled", f"auto_post_enabled=False。configs/auto_post_settings.py を変更後に有効化してください")
+    ok_step("biz_enabled", "dry_run=True なのでスキップ" if dry_run else "enabled")
+
+    # 3. トークン有効確認
+    acc = get_account(ss_id, creds_path, biz_key)
+    if not acc.get("access_token"):
+        return fail("token", "未連携（先にOAuth連携してください）")
+    token_chk = check_token_expiry(acc)
+    token_note = token_chk.get("status", "unknown")
+    if not token_chk["ok"]:
+        return fail("token_expiry", f"トークン期限切れ ({token_note})")
+    ok_step("token_expiry", token_note)
+
+    # 4. username安全チェック
+    expected = EXPECTED_USERNAME.get(biz_key)
+    actual = acc.get("username", "")
+    if expected and actual and actual != expected:
+        return fail("username_check", f"username不一致(@{actual}≠@{expected})")
+    ok_step("username_check", f"@{actual}")
+
+    # 5. 投稿ウィンドウ（dry_run時はスキップ）
+    window = cfg.get("posting_window", ("00:00", "23:59"))
+    if not dry_run and not is_in_posting_window(window):
+        now_str = datetime.now(JST).strftime("%H:%M")
+        return fail("posting_window", f"投稿ウィンドウ外 ({now_str} ∉ {window[0]}-{window[1]})")
+    ok_step("posting_window", f"{window[0]}-{window[1]} (dry_run={dry_run})")
+
+    # 6. 1日投稿上限（dry_run時はスキップ）
+    daily_limit = cfg.get("daily_post_limit", 1)
+    if not dry_run:
+        today_count = count_today_posts(ss, biz_key)
+        if today_count >= daily_limit:
+            return fail("daily_limit", f"本日投稿済み {today_count}/{daily_limit}")
+        ok_step("daily_limit", f"{today_count}/{daily_limit}")
+    else:
+        ok_step("daily_limit", "dry_run=True なのでスキップ")
+
+    # 7. 連続エラー停止チェック
+    err_limit = cfg.get("consecutive_error_limit", 3)
+    consec_err = count_consecutive_errors(ss, biz_key)
+    if consec_err >= err_limit:
+        return fail("consecutive_errors", f"連続エラー {consec_err}/{err_limit} 回 → 自動停止")
+    ok_step("consecutive_errors", f"{consec_err}/{err_limit}")
+
+    # 8. 投稿候補選定（SNS_POST_STOCK）
+    min_score = cfg.get("min_quality_score", 3)
+    candidate = _select_best_stock_row(ss, biz_key, min_score)
+    if not candidate:
+        return fail("post_stock", f"SNS_POST_STOCK に利用可能な候補なし（スコア>={min_score}）")
+    ok_step("post_stock", f"row#{candidate['row_no']} score={candidate['score']}")
+
+    # 9. 重複チェック
+    if check_duplicate_post(ss, biz_key, str(candidate["row_no"])):
+        return fail("duplicate", f"row#{candidate['row_no']} は既投稿")
+    ok_step("duplicate", "重複なし")
+
+    # 10. 画像選定
+    img = _select_image(creds_path, biz_key)
+    if not img:
+        return fail("image_stock", "IMAGE_LIBRARY に利用可能な画像なし（gcs_public_url または Drive URL）")
+    ok_step("image_stock", f"{img['image_id']} needs_gcs={img['needs_gcs']}")
+
+    # 11. 画像URL検証
+    image_url = img["url"]
+    if not image_url.startswith("https://"):
+        return fail("image_url", f"画像URLが HTTPS でない: {image_url[:80]}")
+    # Drive URLはThreads APIで使えない（GCS化が必要）
+    if "drive.google.com" in image_url:
+        if not dry_run:
+            return fail("image_url", "Drive URLのまま実投稿不可。先にGCS化（/image-library-gcs-upload）が必要")
+        ok_step("image_url_validate", "DRY_RUN: Drive URL（実投稿前にGCS化必要）")
+    elif not dry_run:
+        url_chk = validate_image_url(image_url)
+        if not url_chk["ok"]:
+            return fail("image_url_validate", f"画像URLアクセス失敗: {url_chk.get('reason','')}")
+        ok_step("image_url_validate", f"HTTP {url_chk.get('status')}")
+    else:
+        ok_step("image_url_validate", "dry_run=True なのでスキップ")
+
+    # 12. 実投稿 or DRY_RUN
+    text = candidate["text"]
+    preview = {
+        "biz_key": biz_key, "biz_name": biz_name, "dry_run": dry_run,
+        "post_text": text[:200], "image_url": image_url,
+        "image_id": img["image_id"], "needs_gcs": img["needs_gcs"],
+        "quality_score": candidate["score"], "stock_row_no": candidate["row_no"],
+        "checks": checks,
+        "request_body": {
+            "business": biz_key, "text": text[:200], "image_url": image_url,
+        },
+    }
+
+    if dry_run:
+        _log_post_result(ss, biz_key, biz_name, "", "", text, image_url,
+                         img["image_id"], candidate["row_no"],
+                         candidate["score"], True, "DRY_RUN",
+                         token_check=token_note, dup_check="ok")
+        return {"ok": True, **preview, "status": "DRY_RUN"}
+
+    # 本番投稿
+    result = publish_image(ss_id, creds_path, biz_key, text, image_url)
+    if not result.get("ok"):
+        err = result.get("error", "unknown")
+        _log_post_result(ss, biz_key, biz_name, "", "", text, image_url,
+                         img["image_id"], candidate["row_no"],
+                         candidate["score"], False, "ERROR", err,
+                         token_check=token_note, dup_check="ok")
+        return {"ok": False, **preview, "status": "ERROR", "error": err}
+
+    media_id = result.get("media_id", "")
+    permalink = result.get("permalink", "")
+    _log_post_result(ss, biz_key, biz_name, media_id, permalink, text, image_url,
+                     img["image_id"], candidate["row_no"],
+                     candidate["score"], False, "SUCCESS",
+                     token_check=token_note, dup_check="ok")
+    return {"ok": True, **preview, "status": "SUCCESS",
+            "media_id": media_id, "permalink": permalink}
+
+
+def auto_post_ready_check(ss_id: str, creds_path: str) -> dict:
+    """全事業の自動投稿準備状況チェック（投稿はしない）"""
+    from configs.auto_post_settings import BUSINESS_AUTO_POST_CONFIG
+    results = {}
+    for biz_key, cfg in BUSINESS_AUTO_POST_CONFIG.items():
+        status = "NOT_READY"
+        notes = []
+        enabled = cfg.get("auto_post_enabled", False)
+        try:
+            acc = get_account(ss_id, creds_path, biz_key)
+            has_token = bool(acc.get("access_token"))
+            token_chk = check_token_expiry(acc) if has_token else {"ok": False, "status": "no_token"}
+            img = _select_image(creds_path, biz_key)
+            has_image = bool(img)
+            if not has_token:
+                notes.append("token未連携")
+            if not token_chk.get("ok"):
+                notes.append(f"token: {token_chk.get('status')}")
+            if not has_image:
+                notes.append("IMAGE_LIBRARY画像なし")
+            if not enabled:
+                notes.append("auto_post_enabled=False")
+            if not notes:
+                status = "READY" if enabled else "ALMOST_READY"
+            elif len(notes) == 1 and not enabled:
+                status = "ALMOST_READY"
+        except Exception as e:
+            notes.append(f"チェックエラー: {str(e)[:80]}")
+        results[biz_key] = {
+            "status": status, "auto_post_enabled": enabled, "notes": notes,
+            "business_name": cfg.get("business_name", biz_key),
+        }
+    return {"ok": True, "businesses": results}
