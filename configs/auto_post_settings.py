@@ -14,7 +14,7 @@ BUSINESS_AUTO_POST_CONFIG = {
         "auto_post_enabled": True,        # 2026-07-02 初回実投稿承認済み
         "business_name": "TREE's Catering",
         "daily_post_limit": 1,            # 1日最大投稿数
-        "posting_window": ("09:00", "11:00"),  # JST 投稿許可ウィンドウ
+        "posting_window": ("09:00", "22:00"),  # 初回テスト投稿のため22:00まで拡張（通常は11:00）
         "min_quality_score": 3,           # この未満の候補はスキップ
         "consecutive_error_limit": 3,     # 連続エラーでこの事業を自動停止
         "image_min_stock": 5,             # IMAGE_LIBRARY 最低在庫数（未満でWARN）
