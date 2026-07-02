@@ -967,6 +967,38 @@ def run_full_auto(ss_id: str, creds_path: str, biz_key: str, dry_run: bool = Tru
                      img["image_id"], candidate["row_no"],
                      candidate["score"], False, "SUCCESS",
                      token_check=token_note, dup_check="ok")
+
+    # 投稿成功後: SNS_POST_STOCK を「投稿済み」に更新
+    try:
+        sw = _sheet(ss, "SNS_POST_STOCK", SNS_POST_STOCK_HEADER)
+        sw_header = sw.row_values(1)
+        sw_ci = {h: i+1 for i, h in enumerate(sw_header)}
+        row = candidate["row_no"]
+        if "status" in sw_ci:
+            sw.update_cell(row, sw_ci["status"], "投稿済み")
+        if "posted_date" in sw_ci:
+            sw.update_cell(row, sw_ci["posted_date"], _date())
+        if "posted_url" in sw_ci:
+            sw.update_cell(row, sw_ci["posted_url"], permalink)
+    except Exception:
+        pass  # ログ記録は成功済みのためエラーは継続
+
+    # 投稿成功後: IMAGE_LIBRARY の利用回数・最終利用日を更新
+    try:
+        img_gc = _img_lib_gc(creds_path)
+        img_ws = img_gc.open_by_key(IMAGE_LIBRARY_SS).worksheet(IMAGE_LIBRARY_SHEET)
+        img_header = img_ws.row_values(1)
+        img_ci = {h: i+1 for i, h in enumerate(img_header)}
+        cell = img_ws.find(img["image_id"], in_column=1)
+        if cell:
+            usage_col = img_ci.get("利用回数", 13)
+            date_col  = img_ci.get("最終利用日", 14)
+            cur = img_ws.cell(cell.row, usage_col).value
+            img_ws.update_cell(cell.row, usage_col, (int(cur) if cur else 0) + 1)
+            img_ws.update_cell(cell.row, date_col, _date())
+    except Exception:
+        pass
+
     return {"ok": True, **preview, "status": "SUCCESS",
             "media_id": media_id, "permalink": permalink}
 

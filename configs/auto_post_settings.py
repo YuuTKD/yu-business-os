@@ -11,7 +11,7 @@ MASTER_SWITCH_ENV = "AUTO_POST_MASTER_SWITCH"  # "false" で全停止
 # 事業別設定
 BUSINESS_AUTO_POST_CONFIG = {
     "catering": {
-        "auto_post_enabled": False,       # True に変更すれば即起動
+        "auto_post_enabled": True,        # 2026-07-02 初回実投稿承認済み
         "business_name": "TREE's Catering",
         "daily_post_limit": 1,            # 1日最大投稿数
         "posting_window": ("09:00", "11:00"),  # JST 投稿許可ウィンドウ
