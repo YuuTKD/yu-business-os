@@ -11,10 +11,10 @@ MASTER_SWITCH_ENV = "AUTO_POST_MASTER_SWITCH"  # "false" で全停止
 # 事業別設定
 BUSINESS_AUTO_POST_CONFIG = {
     "catering": {
-        "auto_post_enabled": True,        # 2026-07-02 初回実投稿承認済み
+        "auto_post_enabled": False,       # 2026-07-02 初回実投稿成功確認後、通常運用前のため停止
         "business_name": "TREE's Catering",
         "daily_post_limit": 1,            # 1日最大投稿数
-        "posting_window": ("09:00", "22:00"),  # 初回テスト投稿のため22:00まで拡張（通常は11:00）
+        "posting_window": ("09:00", "11:00"),  # 通常運用ウィンドウ
         "min_quality_score": 3,           # この未満の候補はスキップ
         "consecutive_error_limit": 3,     # 連続エラーでこの事業を自動停止
         "image_min_stock": 5,             # IMAGE_LIBRARY 最低在庫数（未満でWARN）
