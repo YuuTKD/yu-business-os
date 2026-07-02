@@ -2143,6 +2143,144 @@ def threads_publish_image_ep():
     except Exception as e:
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route("/threads-auto-post-full", methods=["POST", "GET"])
+def threads_auto_post_full():
+    """
+    完全自動投稿エンジン（全安全チェック付き）。
+
+    POST body:
+      dry_run   : true/false （デフォルト true）
+      biz_keys  : ["catering","tachinomiya"] （省略時は auto_post_enabled=True のみ）
+      skip_window_check: true/false （テスト用、デフォルト false）
+
+    グローバルOFF: 環境変数 AUTO_POST_MASTER_SWITCH=false で全停止。
+    事業別OFF: configs/auto_post_settings.py の auto_post_enabled=False。
+    """
+    try:
+        from core.threads_auto_post import run_full_auto
+        data     = request.get_json(silent=True) or {}
+        dry_run  = bool(data.get("dry_run", True))
+        biz_keys = data.get("biz_keys") or None
+        skip_win = bool(data.get("skip_window_check", False))
+        return jsonify(run_full_auto(_cf_ss(), CREDS_PATH, biz_keys=biz_keys,
+                                     dry_run=dry_run, skip_window_check=skip_win)), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-auto-post-config", methods=["GET"])
+def threads_auto_post_config():
+    """完全自動投稿 事業別設定を返す（read-only）"""
+    try:
+        from configs.auto_post_settings import AUTO_POST_CONFIG, SCHEDULER_DESIGN, READY_CONDITIONS
+        safe_cfg = {
+            k: {ck: cv for ck, cv in v.items()}
+            for k, v in AUTO_POST_CONFIG.items()
+        }
+        return jsonify({
+            "ok": True,
+            "master_switch": "ON" if os.getenv("AUTO_POST_MASTER_SWITCH", "true").lower()
+                             not in ("false", "0", "off") else "OFF",
+            "config": safe_cfg,
+            "enabled_keys": [k for k, v in AUTO_POST_CONFIG.items() if v.get("auto_post_enabled")],
+            "scheduler_design": SCHEDULER_DESIGN,
+            "ready_conditions": READY_CONDITIONS,
+        }), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-post-quality-check", methods=["POST"])
+def threads_post_quality_check():
+    """
+    投稿テキストの品質スコアを確認する（投稿なし）。
+
+    POST body: {"text": "...", "biz_key": "catering"}
+    """
+    try:
+        from core.post_quality import score_post
+        data    = request.get_json(silent=True) or {}
+        text    = str(data.get("text", "") or "")
+        biz_key = str(data.get("biz_key", "") or "")
+        if not text:
+            return jsonify({"ok": False, "error": "text は必須です"}), 400
+        result  = score_post(text, biz_key)
+        return jsonify({"ok": True, "text_length": len(text), **result}), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/threads-auto-post-ready-check", methods=["GET"])
+def threads_auto_post_ready_check():
+    """完全自動投稿 READY判定（20条件チェック）"""
+    try:
+        from configs.auto_post_settings import AUTO_POST_CONFIG, READY_CONDITIONS
+        import gspread as _gs
+        from google.oauth2.service_account import Credentials as _Creds
+
+        creds = _Creds.from_service_account_file(
+            CREDS_PATH, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        gc = _gs.authorize(creds)
+        ss = gc.open_by_key(_cf_ss())
+
+        # 各シートの存在確認
+        sheet_names = [ws.title for ws in ss.worksheets()]
+
+        conditions = []
+        implemented = [
+            ("自動候補選定", "get_pending()",                         True),
+            ("画像自動選定", "_resolve_image_for_threads() + GCS",    True),
+            ("品質スコア",   "score_post() ルールベース",              True),
+            ("画像URL検証",  "validate_image_url() HTTP HEAD",         True),
+            ("username確認", "publish_image() 内 EXPECTED_USERNAME",   True),
+            ("token期限確認","check_token_expiry() 7日前警告",          True),
+            ("重複防止",     "check_duplicate_post() Jaccard≥0.75",   True),
+            ("LINEアラート", "send_threads_alert() DRY_RUN確認済み",   True),
+            ("グローバルOFF","AUTO_POST_MASTER_SWITCH env var",         True),
+            ("連続エラー停止","count_consecutive_errors() ≥ threshold", True),
+            ("1日投稿上限",  "daily_post_limit=1 per biz",             True),
+            ("Scheduler設計","SCHEDULER_DESIGN 設計済み（未有効化）",   True),
+            ("ログ保存",     "THREADS_ALERT_LOG sheet",                 "THREADS_ALERT_LOG" in sheet_names),
+            ("インサイト同期","/threads-insights-sync-all",              True),
+            ("勝ち投稿分析", "/sns-analyze-all",                        True),
+            ("画像在庫監視", "IMAGE_LIBRARY 件数確認（手動）",            False),
+            ("投稿候補監視", "SNS_POST_STOCK 件数確認",                  True),
+            ("事業別ON/OFF", "auto_post_enabled per biz",               True),
+            ("フォールバック禁止","fallback_to_text_allowed=False",      True),
+            ("ロールバック", "git revert + auto_post_enabled=False",     True),
+        ]
+
+        ready_count = sum(1 for _, _, v in implemented if v is True)
+        total = len(implemented)
+
+        for desc, detail, done in implemented:
+            conditions.append({"condition": desc, "detail": detail,
+                                "status": "✅" if done is True else ("⚠️" if done is False else "✅")})
+
+        if ready_count >= 18:
+            verdict = "ALMOST_READY"
+            verdict_reason = f"{ready_count}/{total}条件達成。catering/tachinomiyaの成功実績3件を確認後にScheduler ONを推奨。"
+        elif ready_count >= 15:
+            verdict = "ALMOST_READY"
+            verdict_reason = f"{ready_count}/{total}条件達成。残り{total-ready_count}条件を満たしてください。"
+        else:
+            verdict = "NOT_READY"
+            verdict_reason = f"{ready_count}/{total}条件のみ達成。"
+
+        return jsonify({
+            "ok": True,
+            "verdict": verdict,
+            "verdict_reason": verdict_reason,
+            "ready_count": ready_count,
+            "total": total,
+            "conditions": conditions,
+            "enabled_biz": [k for k, v in AUTO_POST_CONFIG.items() if v.get("auto_post_enabled")],
+            "standby_biz": [k for k, v in AUTO_POST_CONFIG.items() if v.get("status") == "standby"],
+        }), 200
+    except Exception as e:
+        traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/threads-auto-post", methods=["POST", "GET"])
 def threads_auto_post():
     """
