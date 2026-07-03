@@ -740,17 +740,25 @@ def _select_best_stock_row(ss, biz_key: str, min_score: int = 0) -> dict:
         return None
 
 
-def _select_image(creds_path: str, biz_key: str) -> dict:
+def _select_image(creds_path: str, biz_key: str, post_text: str = "") -> dict:
     """
-    IMAGE_LIBRARY から未使用（利用回数0 or 最少）の画像を選ぶ。
-    gcs_public_url があればそのまま使用。なければ Drive URL を返す（GCS化が必要）。
-    Returns {"image_id": str, "url": str, "needs_gcs": bool, "file_name": str} or None
+    IMAGE_LIBRARY から投稿本文テーマに合致する画像を選ぶ。
+    - post_text からテーマを抽出し、blocked_post_themes に該当する画像を除外する
+    - image_theme が一致する画像を優先。未分類画像はフォールバックとして使用
+    - gcs_public_url があるものを優先、利用回数少ない順
+    Returns:
+      {"image_id": str, "url": str, "needs_gcs": bool, "file_name": str,
+       "post_theme": str, "theme_matched": bool, "img_theme": str, "theme_match_reason": str}
+    or {"theme_blocked": True, "post_theme": str, "blocked_count": int}  (全候補除外)
+    or None  (対象画像ゼロ)
     """
+    from configs.post_theme_rules import extract_post_theme
     biz_name_map = {
         "catering": "CATERING", "tachinomiya": "TACHINOMIYA",
         "beauty": "BEAUTY", "ryukyu_hinabe": "HINABE",
     }
     biz_name = biz_name_map.get(biz_key, biz_key.upper())
+    post_theme = extract_post_theme(post_text, biz_key) if post_text else "general"
     try:
         gc = _img_lib_gc(creds_path)
         ws = gc.open_by_key(IMAGE_LIBRARY_SS).worksheet(IMAGE_LIBRARY_SHEET)
@@ -760,47 +768,106 @@ def _select_image(creds_path: str, biz_key: str) -> dict:
         header = rows[0]
         ci = {h: i for i, h in enumerate(header)}
 
-        img_id_col = ci.get("画像ID", 0)
-        fname_col = ci.get("ファイル名", 1)
-        drive_url_col = ci.get("Drive URL", 2)
-        biz_col = ci.get("事業名", 4)
-        usage_col = ci.get("利用回数", 12)
-        gcs_col = ci.get("gcs_public_url", -1)
+        img_id_col       = ci.get("画像ID", 0)
+        fname_col        = ci.get("ファイル名", 1)
+        drive_url_col    = ci.get("Drive URL", 2)
+        biz_col          = ci.get("事業名", 4)
+        usage_col        = ci.get("利用回数", 12)
+        gcs_col          = ci.get("gcs_public_url", -1)
+        img_theme_col    = ci.get("image_theme", -1)
+        blocked_col      = ci.get("blocked_post_themes", -1)
+        allowed_col      = ci.get("allowed_post_themes", -1)
 
         candidates = []
+        blocked_count = 0
         for r in rows[1:]:
             if not r or len(r) <= biz_col:
                 continue
             if r[biz_col] != biz_name:
                 continue
-            image_id = r[img_id_col] if len(r) > img_id_col else ""
-            fname = r[fname_col] if len(r) > fname_col else ""
+            image_id  = r[img_id_col] if len(r) > img_id_col else ""
+            fname     = r[fname_col]  if len(r) > fname_col  else ""
             drive_url = r[drive_url_col] if len(r) > drive_url_col else ""
-            gcs_url = (r[gcs_col] if gcs_col >= 0 and len(r) > gcs_col else "") or ""
+            gcs_url   = (r[gcs_col] if gcs_col >= 0 and len(r) > gcs_col else "") or ""
+            img_theme = (r[img_theme_col] if img_theme_col >= 0 and len(r) > img_theme_col else "") or ""
+            blocked_str = (r[blocked_col] if blocked_col >= 0 and len(r) > blocked_col else "") or ""
+            allowed_str = (r[allowed_col] if allowed_col >= 0 and len(r) > allowed_col else "") or ""
             usage = 0
             try:
                 usage = int(r[usage_col]) if len(r) > usage_col and r[usage_col] else 0
             except ValueError:
-                usage = 0
+                pass
+
+            # テーマ除外チェック（post_theme が blocked_post_themes に含まれる → 除外）
+            if post_theme != "general" and blocked_str:
+                blocked_list = [t.strip() for t in blocked_str.split(",") if t.strip()]
+                if post_theme in blocked_list:
+                    blocked_count += 1
+                    continue
+
+            # テーマ一致スコア
+            allowed_list = [t.strip() for t in allowed_str.split(",") if t.strip()]
+            if post_theme == "general":
+                theme_matched = True
+            else:
+                theme_matched = (img_theme == post_theme) or (post_theme in allowed_list)
+
             candidates.append({
                 "image_id": image_id, "file_name": fname,
-                "drive_url": drive_url, "gcs_url": gcs_url, "usage": usage,
+                "drive_url": drive_url, "gcs_url": gcs_url,
+                "usage": usage, "img_theme": img_theme,
+                "theme_matched": theme_matched,
             })
 
         if not candidates:
+            if blocked_count > 0:
+                return {"theme_blocked": True, "post_theme": post_theme, "blocked_count": blocked_count}
             return None
-        # gcs_url があるものを優先、利用回数少ない順
+
+        # GCS優先プール
         with_gcs = [c for c in candidates if c["gcs_url"].startswith("https://")]
         pool = with_gcs if with_gcs else candidates
-        pool.sort(key=lambda x: x["usage"])
-        best = pool[0]
+
+        if post_theme != "general":
+            # テーマ一致（分類済み）のみ使用。未分類・テーマ違いは使わない
+            matched = sorted([c for c in pool if c["theme_matched"] and c["img_theme"]], key=lambda x: x["usage"])
+            ordered = matched
+            if not ordered and with_gcs:
+                # GCSプールになかった場合のみ全候補から再検索（Driveフォールバック）
+                matched = sorted([c for c in candidates if c["theme_matched"] and c["img_theme"]], key=lambda x: x["usage"])
+                ordered = matched
+        else:
+            # general: 未分類・分類済みすべて使用（利用回数少ない順）
+            ordered = sorted(pool, key=lambda x: x["usage"])
+
+        if not ordered:
+            if blocked_count > 0:
+                return {"theme_blocked": True, "post_theme": post_theme, "blocked_count": blocked_count}
+            if post_theme != "general":
+                return {"theme_no_match": True, "post_theme": post_theme,
+                        "total_biz_images": len(candidates)}
+            return None
+
+        best = ordered[0]
         url = best["gcs_url"] if best["gcs_url"].startswith("https://") else best["drive_url"]
         needs_gcs = not best["gcs_url"].startswith("https://")
+
+        if post_theme == "general":
+            reason = "general（テーマフィルタ適用外）"
+        elif best["img_theme"] and best["theme_matched"]:
+            reason = f"image_theme={best['img_theme']} match"
+        elif not best["img_theme"]:
+            reason = "未分類画像（フォールバック）"
+        else:
+            reason = f"allowed_post_themes match"
+
         return {
             "image_id": best["image_id"], "url": url,
             "needs_gcs": needs_gcs, "file_name": best["file_name"],
+            "post_theme": post_theme, "theme_matched": best["theme_matched"],
+            "img_theme": best["img_theme"], "theme_match_reason": reason,
         }
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -902,16 +969,25 @@ def run_full_auto(ss_id: str, creds_path: str, biz_key: str, dry_run: bool = Tru
     if not candidate:
         return fail("post_stock", f"SNS_POST_STOCK に利用可能な候補なし（スコア>={min_score}）")
     ok_step("post_stock", f"row#{candidate['row_no']} score={candidate['score']}")
+    text = candidate["text"]  # テーマ判定のため事前取得
 
     # 9. 重複チェック
     if check_duplicate_post(ss, biz_key, str(candidate["row_no"])):
         return fail("duplicate", f"row#{candidate['row_no']} は既投稿")
     ok_step("duplicate", "重複なし")
 
-    # 10. 画像選定
-    img = _select_image(creds_path, biz_key)
+    # 10. 画像選定（投稿本文テーマ考慮）
+    img = _select_image(creds_path, biz_key, post_text=text)
     if not img:
         return fail("image_stock", "IMAGE_LIBRARY に利用可能な画像なし（gcs_public_url または Drive URL）")
+    if img.get("theme_blocked"):
+        return fail("image_stock",
+                    f"post_theme={img['post_theme']} 対象画像なし（{img['blocked_count']}件除外）"
+                    "。対応カテゴリの画像をGCS化・image_theme設定後に再実行してください。")
+    if img.get("theme_no_match"):
+        return fail("image_stock",
+                    f"post_theme={img['post_theme']} に分類済みの一致画像なし（全{img['total_biz_images']}件はテーマ違い）"
+                    "。対応カテゴリの画像をGCS化・image_theme設定後に再実行してください。")
     ok_step("image_stock", f"{img['image_id']} needs_gcs={img['needs_gcs']}")
 
     # 11. 画像URL検証
@@ -931,8 +1007,28 @@ def run_full_auto(ss_id: str, creds_path: str, biz_key: str, dry_run: bool = Tru
     else:
         ok_step("image_url_validate", "dry_run=True なのでスキップ")
 
+    # 13. 投稿テーマ × 画像テーマ整合チェック（新規）
+    post_theme   = img.get("post_theme", "general")
+    theme_matched = img.get("theme_matched", True)
+    img_theme    = img.get("img_theme", "")
+    theme_reason = img.get("theme_match_reason", "")
+    # 分類済み画像がテーマ不一致の場合は投稿中止（フォールバック禁止）
+    if post_theme != "general" and img_theme and not theme_matched:
+        _log_post_result(ss, biz_key, biz_name, "", "", text, image_url,
+                         img["image_id"], candidate["row_no"], candidate["score"],
+                         dry_run, "SKIP",
+                         f"テーマ不一致: post={post_theme} / image={img_theme}",
+                         token_check=token_note, dup_check="ok")
+        return fail("theme_match",
+                    f"テーマ不一致: post_theme={post_theme} / image_theme={img_theme} "
+                    "→ 投稿中止。対応カテゴリの画像をGCS化・image_theme設定後に再実行してください。")
+    if post_theme == "general":
+        ok_step("theme_match", "general（テーマフィルタ適用外）")
+    else:
+        warn = " ⚠️未分類画像使用" if (not img_theme) else ""
+        ok_step("theme_match", f"post_theme={post_theme} | {theme_reason}{warn}")
+
     # 12. 実投稿 or DRY_RUN
-    text = candidate["text"]
     preview = {
         "biz_key": biz_key, "biz_name": biz_name, "dry_run": dry_run,
         "post_text": text[:200], "image_url": image_url,
