@@ -21,10 +21,10 @@ BUSINESS_AUTO_POST_CONFIG = {
         "post_stock_min": 3,              # SNS_POST_STOCK 最低在庫数（未満でWARN）
     },
     "tachinomiya": {
-        "auto_post_enabled": False,
+        "auto_post_enabled": True,         # 2026-07-04 初回実投稿承認済み
         "business_name": "TACHINOMIYA",
         "daily_post_limit": 1,
-        "posting_window": ("18:00", "21:00"),
+        "posting_window": ("00:00", "22:00"),  # 初回テスト投稿のため拡張（通常は18:00-21:00）
         "min_quality_score": 3,
         "consecutive_error_limit": 3,
         "image_min_stock": 5,
