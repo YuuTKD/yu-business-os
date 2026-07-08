@@ -111,13 +111,11 @@ if [[ $# -lt 1 ]]; then
 fi
 
 PR_NUMBER="$1"
-AUTO_MERGE="${AUTO_MERGE:-0}"
 
 echo ""
 echo -e "${BLD}━━━ Safe Merge Audit Gate ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
 echo -e "  PR番号: #${PR_NUMBER}"
-echo -e "  AUTO_MERGE: ${AUTO_MERGE}"
-echo -e "  注意: 通常は監査のみ。AUTO_MERGE=1 の時だけMergeします"
+echo -e "  注意: yu-business-osでは監査のみ。Mergeは人間承認で実行します"
 echo -e "${BLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
 echo ""
 
@@ -235,35 +233,12 @@ echo ""
 echo -e "${GRN}${BLD}━━━ GO ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
 echo -e "${GRN}${BLD}  低リスクMerge候補として通過しました${RST}"
 echo ""
-
-if [[ "$AUTO_MERGE" == "1" ]]; then
-  echo -e "${YLW}${BLD}  AUTO_MERGE=1 のため追加安全チェックを実行します${RST}"
-
-  [[ "$PR_IS_DRAFT" != "true" ]] || stop "Draft PRはAUTO_MERGE禁止です。"
-
-  if [[ -n "${PR_REVIEW_DECISION:-}" && "$PR_REVIEW_DECISION" != "APPROVED" ]]; then
-    stop "AUTO_MERGEにはreviewDecision=APPROVEDが必要です。現在: ${PR_REVIEW_DECISION}"
-  fi
-
-  if echo "$PR_CHECK_STATES" | grep -qiE -- "FAILURE|ERROR|CANCELLED|TIMED_OUT|ACTION_REQUIRED"; then
-    stop "失敗しているCI/status checkがあります。"
-  fi
-
-  echo -e "${YLW}${BLD}  AUTO_MERGE=1 のため squash merge を実行します${RST}"
-  echo -e "${YLW}  ※ --delete-branch は使いません${RST}"
-  echo ""
-  gh pr merge "$PR_NUMBER" --squash || stop "gh pr merge が失敗しました。成功扱いにはしません。"
-  echo ""
-  echo -e "${GRN}${BLD}  Merge完了: PR #${PR_NUMBER}${RST}"
-else
-  echo -e "${GRN}  監査のみ完了。Mergeは実行していません。${RST}"
-  echo ""
-  echo -e "${BLD}自動Mergeする場合:${RST}"
-  echo "  AUTO_MERGE=1 ./scripts/agent/safe_auto_merge_pr.sh ${PR_NUMBER}"
-  echo ""
-  echo -e "${BLD}手動Mergeする場合:${RST}"
-  echo "  gh pr merge ${PR_NUMBER} --squash"
-fi
-
+echo -e "${GRN}  監査のみ完了。Mergeは実行していません。${RST}"
+echo ""
+echo -e "${BLD}人間承認後に実行するコマンド:${RST}"
+echo "  gh pr merge ${PR_NUMBER} --squash"
+echo ""
+echo -e "${YLW}注意: yu-business-os本体ではAUTO_MERGE実行は禁止です。${RST}"
+echo -e "${YLW}docs / templates / reports 等の低リスクPRでも、最終Mergeは人間承認で実行します。${RST}"
 echo ""
 echo -e "${GRN}${BLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
