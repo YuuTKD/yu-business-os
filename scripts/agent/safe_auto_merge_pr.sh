@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # safe_auto_merge_pr.sh
-# Safe Merge Audit Gate / controlled auto merge mode
+# Safe Merge Audit Gate / audit-only mode
 #
 # 目的:
 #   指定PRが「低リスクMerge候補」かを判定する。
-#   通常は監査のみ。
-#   AUTO_MERGE=1 の時だけ、全監査通過後に squash merge する。
+#   監査のみ。
 #
 # 使い方:
 #   ./scripts/agent/safe_auto_merge_pr.sh <PR番号>
-#   AUTO_MERGE=1 ./scripts/agent/safe_auto_merge_pr.sh <PR番号>
 #
 # 注意:
 #   --delete-branch は使わない。
@@ -106,7 +104,6 @@ stop() {
 
 if [[ $# -lt 1 ]]; then
   echo "使い方: $0 <PR番号>"
-  echo "AUTO_MERGE=1 $0 <PR番号>"
   exit 1
 fi
 
@@ -167,6 +164,18 @@ ok "PRはOPEN"
 
 [[ "$PR_MERGEABLE" == "MERGEABLE" ]] || stop "PRがmergeableではありません: ${PR_MERGEABLE}"
 ok "PRはmergeable"
+
+[[ "$PR_IS_DRAFT" != "true" ]] || stop "Draft PRはMerge監査NGです。"
+
+if [[ "${PR_REVIEW_DECISION:-}" != "APPROVED" ]]; then
+  stop "reviewDecision=APPROVED ではありません。現在: ${PR_REVIEW_DECISION:-none}"
+fi
+
+if echo "$PR_CHECK_STATES" | grep -qiE -- "PENDING|QUEUED|IN_PROGRESS|FAILURE|ERROR|CANCELLED|TIMED_OUT|ACTION_REQUIRED"; then
+  stop "CI/status checkが未完了または失敗しています。"
+fi
+
+ok "Draft / Review / CI 条件を通過"
 
 echo ""
 echo -e "${BLD}[4/7] 変更ファイル許可範囲確認${RST}"
@@ -238,7 +247,7 @@ echo ""
 echo -e "${BLD}人間承認後に実行するコマンド:${RST}"
 echo "  gh pr merge ${PR_NUMBER} --squash"
 echo ""
-echo -e "${YLW}注意: yu-business-os本体ではAUTO_MERGE実行は禁止です。${RST}"
+echo -e "${YLW}注意: yu-business-os本体では自動Merge実行は禁止です。${RST}"
 echo -e "${YLW}docs / templates / reports 等の低リスクPRでも、最終Mergeは人間承認で実行します。${RST}"
 echo ""
 echo -e "${GRN}${BLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
