@@ -79,7 +79,11 @@ SECRET_PATTERNS=(
   "api[_-]?key[[:space:]]*[:=][[:space:]]*['\"]?[A-Za-z0-9._-]{16,}['\"]?"
   "token[[:space:]]*[:=][[:space:]]*['\"]?[A-Za-z0-9._-]{16,}['\"]?"
   "secret[[:space:]]*[:=][[:space:]]*['\"]?[A-Za-z0-9._-]{16,}['\"]?"
+  "GOOGLE_APPLICATION_CREDENTIALS"
+  "private_key_id[[:space:]]*[:=]"
+  "client_email[[:space:]]*[:=].*gserviceaccount\.com"
 )
+
 
 RED='\033[0;31m'
 GRN='\033[0;32m'
@@ -125,13 +129,16 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) \
 
 echo -e "${BLD}[1/7] PR情報取得${RST}"
 
-PR_JSON=$(gh pr view "$PR_NUMBER" --json title,state,mergeable,labels 2>/dev/null) \
+PR_JSON=$(gh pr view "$PR_NUMBER" --json title,state,mergeable,labels,reviewDecision,statusCheckRollup,isDraft 2>/dev/null) \
   || stop "PR #${PR_NUMBER} を取得できません。"
 
 PR_TITLE=$(echo "$PR_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['title'])")
 PR_STATE=$(echo "$PR_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['state'])")
 PR_MERGEABLE=$(echo "$PR_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['mergeable'])")
 PR_LABELS=$(echo "$PR_JSON" | python3 -c "import json,sys; [print(l['name']) for l in json.load(sys.stdin)['labels']]")
+PR_REVIEW_DECISION=$(echo "$PR_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('reviewDecision') or '')")
+PR_IS_DRAFT=$(echo "$PR_JSON" | python3 -c "import json,sys; print(str(json.load(sys.stdin).get('isDraft')).lower())")
+PR_CHECK_STATES=$(echo "$PR_JSON" | python3 -c "import json,sys; data=json.load(sys.stdin); [print(c.get('state') or c.get('conclusion') or '') for c in data.get('statusCheckRollup') or []]")
 
 PR_FILE_STATUS=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" \
   --jq '.[] | "\(.status)\t\(.filename)"' 2>/dev/null) \
@@ -142,6 +149,8 @@ PR_FILES=$(echo "$PR_FILE_STATUS" | cut -f2-)
 info "タイトル : ${PR_TITLE}"
 info "状態     : ${PR_STATE}"
 info "mergeable: ${PR_MERGEABLE}"
+info "reviewDecision: ${PR_REVIEW_DECISION:-none}"
+info "isDraft: ${PR_IS_DRAFT}"
 info "ラベル   : $(echo "$PR_LABELS" | tr '\n' ' ')"
 info "ファイル : $(echo "$PR_FILES" | wc -l | tr -d ' ')件"
 
@@ -200,7 +209,7 @@ ok "削除・renameなし"
 echo ""
 echo -e "${BLD}[6/7] Secret/APIキーらしき内容確認${RST}"
 
-PR_DIFF=$(gh pr diff "$PR_NUMBER" 2>/dev/null || true)
+PR_DIFF=$(gh pr diff "$PR_NUMBER" 2>/dev/null) || stop "PR diffを取得できません。通信/APIエラー時は安全のためSTOPします。"
 ADDED_LINES=$(echo "$PR_DIFF" | grep -E "^\+" | grep -vE "^\+\+\+" || true)
 
 for pattern in "${SECRET_PATTERNS[@]}"; do
@@ -228,10 +237,22 @@ echo -e "${GRN}${BLD}  低リスクMerge候補として通過しました${RST}"
 echo ""
 
 if [[ "$AUTO_MERGE" == "1" ]]; then
+  echo -e "${YLW}${BLD}  AUTO_MERGE=1 のため追加安全チェックを実行します${RST}"
+
+  [[ "$PR_IS_DRAFT" != "true" ]] || stop "Draft PRはAUTO_MERGE禁止です。"
+
+  if [[ -n "${PR_REVIEW_DECISION:-}" && "$PR_REVIEW_DECISION" != "APPROVED" ]]; then
+    stop "AUTO_MERGEにはreviewDecision=APPROVEDが必要です。現在: ${PR_REVIEW_DECISION}"
+  fi
+
+  if echo "$PR_CHECK_STATES" | grep -qiE -- "FAILURE|ERROR|CANCELLED|TIMED_OUT|ACTION_REQUIRED"; then
+    stop "失敗しているCI/status checkがあります。"
+  fi
+
   echo -e "${YLW}${BLD}  AUTO_MERGE=1 のため squash merge を実行します${RST}"
   echo -e "${YLW}  ※ --delete-branch は使いません${RST}"
   echo ""
-  gh pr merge "$PR_NUMBER" --squash
+  gh pr merge "$PR_NUMBER" --squash || stop "gh pr merge が失敗しました。成功扱いにはしません。"
   echo ""
   echo -e "${GRN}${BLD}  Merge完了: PR #${PR_NUMBER}${RST}"
 else
