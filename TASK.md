@@ -62,3 +62,46 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 完了条件:
 スコープ:
 ```
+
+
+## Safe Merge Audit Gate 運用ルール
+
+yu-business-os 本体では、PRの自動Merge実行は禁止する。
+
+目的：
+- 低リスクPRかどうかを監査する
+- 危険PRをSTOPする
+- Merge可否判断を補助する
+
+運用：
+- `scripts/agent/safe_auto_merge_pr.sh <PR番号>` は監査専用
+- Mergeは必ず人間承認後に `gh pr merge <PR番号> --squash` で実行
+- `AUTO_MERGE=1` は yu-business-os では使用禁止
+
+必須条件：
+- `safe-auto-merge` ラベルあり
+- Draft PRではない
+- reviewDecision が APPROVED
+- CI/status check が未完了・失敗ではない
+- 変更ファイルが docs / templates / reports / README / TASK / REPORT / PRテンプレのみ
+- Secret/APIキーらしき文字列なし
+- deploy / scheduler / auth / customer / payment などの危険語なし
+- 削除/renameなし
+
+自動Merge禁止対象：
+- scripts
+- agents
+- skills
+- core
+- configs
+- businesses
+- knowledge
+- .env
+- Cloud Run
+- Scheduler
+- SNS投稿
+- DM送信
+- Gmail/LINE送信
+- 決済
+- 認証
+- 顧客データ
