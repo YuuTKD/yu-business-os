@@ -1636,6 +1636,52 @@ def finance_owner_report():
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/ai-acquisition-notify", methods=["POST", "GET"])
+def ai_acquisition_notify():
+    """
+    ai_net_business商品マッチ候補をオーナーLINEへ通知。
+    ?send=1 で本番送信。なしはプレビューのみ。
+    LINE_OWNER_TOKEN を使用（finance-owner-reportと同パターン）。
+    DM自動送信なし / Scheduler OFF。
+    """
+    try:
+        import requests as _rq
+        _acq_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "scripts", "acquisition",
+        )
+        if _acq_dir not in sys.path:
+            sys.path.insert(0, _acq_dir)
+        import ai_net_acquisition_notify as _acq
+
+        data = request.get_json(silent=True) or {}
+        send = (str(request.args.get("send", "")) == "1") or bool(data.get("send", False))
+
+        sr, rv, ho, ex = _acq.classify_summary(_acq.CANDIDATES)
+        line_msg = _acq.build_line_message(sr, rv, ho, ex)
+
+        sent = False
+        token = os.getenv("LINE_OWNER_TOKEN", "")
+        if send and token:
+            resp = _rq.post(
+                "https://api.line.me/v2/bot/message/broadcast",
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                json={"messages": [{"type": "text", "text": line_msg[:4900]}]},
+                timeout=10,
+            )
+            sent = resp.ok
+        return jsonify({
+            "ok": True, "sent": sent, "dry_run": not send,
+            "send_ready": len(sr), "revise": len(rv),
+            "total": len(_acq.CANDIDATES),
+            "preview": line_msg[:600], "length": len(line_msg),
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ─────────────────────────────────────────────────────────
 # LINE家計簿 — オーナーLINEから資金記録（Webhook）
 # ─────────────────────────────────────────────────────────

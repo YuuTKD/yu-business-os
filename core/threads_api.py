@@ -100,6 +100,182 @@ SNS_POST_STOCK_HEADER = [
     "rewrite_version", "memo",
 ]
 
+# LINE Push通知: 事業別DESTINATIONの環境変数名
+_LINE_DEST_ENV = {
+    "tachinomiya":   "LINE_TACHINOMIYA_DESTINATION",
+    "catering":      "LINE_CATERING_DESTINATION",
+    "beauty":        "LINE_BEAUTY_DESTINATION",
+    "ryukyu_hinabe": "LINE_HINABE_DESTINATION",
+}
+# 通知対象のFAILステップ（正常停止・時間帯制限は除外）
+_NOTIFY_FAIL_STEPS = frozenset({
+    "token_expiry", "username_check", "consecutive_errors",
+    "post_stock", "image_stock", "image_url", "theme_match",
+})
+# 通知対象のERRORステータス
+_NOTIFY_STATUSES = frozenset({"SUCCESS", "ERROR"})
+
+_NOTIFY_NEXT_ACTION = {
+    "token_expiry":       "→ /threads-manual-setup でトークン更新してください",
+    "username_check":     "→ EXPECTED_USERNAMEの設定を確認してください",
+    "consecutive_errors": "→ THREADS_POST_LOGでエラー原因を確認してください",
+    "post_stock":         "→ SNS_POST_STOCKに投稿候補を追加してください",
+    "image_stock":        "→ IMAGE_LIBRARYにGCS画像を追加してください",
+    "image_url":          "→ GCS画像のHTTP 200を確認してください",
+    "theme_match":        "→ image_theme / allowed_post_themesを確認してください",
+}
+
+# 商品名が本文に強く出るテーマ: general/tourist_general へのフォールバック禁止
+_STRONG_PRODUCT_THEMES = {
+    "tachinomiya": {"sata_andagi", "drink", "rafute"},
+    "catering":    {"bento", "setup", "decoration", "hors_doeuvre", "corporate_event"},
+}
+
+# ===== フォルダ名 → テーマ対応表（最重要・変更禁止） =====
+# IMAGE_LIBRARYの「カテゴリ」列 = Google Driveのフォルダ名（人間が手動分類）
+# Drive API では親フォルダが取得できないため、カテゴリ列が唯一の一次情報源。
+# カテゴリ列とimage_themeが矛盾した場合は 必ずカテゴリ列（フォルダ名）を正とする。
+# 新しいフォルダを追加した場合はここにも追記すること。
+_RELIABLE_CATEGORY_THEMES = {
+    "tachinomiya": {
+        # フォルダ名          : 投稿テーマキー
+        "サーターアンダギー"   : "sata_andagi",   # 揚げ菓子・沖縄スイーツ系
+        "BAR"                : "drink",          # カウンタードリンク系
+        "ドリンク"            : "drink",          # ドリンク単体
+        "店舗内観"            : "tourist_general",# 店舗・観光向け
+        "店舗外観"            : "tourist_general",
+        "イベント"            : "tourist_general",
+        "ラフテー"            : "rafute",         # 豚肉煮込み料理
+    },
+    "catering": {
+        # フォルダ名          : 投稿テーマキー
+        # ── 当初想定フォルダ名（Drive未使用だが将来追加時のため残す）──
+        "料理"               : "catering_food",
+        "お弁当"             : "bento",
+        "設営"               : "setup",
+        "会場設営"           : "setup",
+        "装飾"               : "decoration",
+        "企業イベント"        : "corporate_event",
+        # ── IMAGE_LIBRARY 実際のカテゴリ列（2026-07 確認済み） ──
+        "オードブル"          : "hors_doeuvre",  # 71件・法人イベント前菜
+        "ケータリング"        : "catering_food",  # 21件・汎用料理全般
+        "会議用弁当"          : "bento",          # 20件・9マス弁当・仕出し弁当
+        "イベント"            : "corporate_event",# 6件・法人イベント・懇親会（目視確認推奨）
+        "法人利用"            : "corporate_event",# 1件・法人利用シーン
+    },
+}
+# 曖昧フォルダ: 「何でも入る」フォルダのため内容を特定できない
+# → STRONGテーマ（sata_andagi/drink/rafute等）投稿では image_theme を無視してスキップ
+# → image_theme が設定されていても is_theme_verified=TRUE でも適用しない
+_AMBIGUOUS_CATEGORIES = {"フード", "商品写真", "料理全般", ""}
+
+# テーマ別・補充警告閾値（残り枚数）
+_THEME_THRESHOLDS = {
+    "tachinomiya": {
+        "sata_andagi": 10, "drink": 10, "tourist_general": 10,
+        "okinawa_food": 5, "rafute": 5, "general": 5,
+    },
+    "catering": {
+        "catering_food": 10, "general": 10, "corporate_event": 10,
+        "setup": 10, "decoration": 10, "bento": 5, "hors_doeuvre": 5,
+    },
+}
+
+# スタッフ向け補充依頼文テンプレート (biz_key, theme) → 本文
+_REPLENISHMENT_TEMPLATE = {
+    ("tachinomiya", "sata_andagi"):    "サーターアンダギーの写真が残り{n}枚です。揚げたて・食べ歩き・店頭陳列の写真を10枚以上撮影してください。ピンボケ・暗すぎNG。撮影後はDriveのTACHINOMIYAフォルダへ入れて「sata_andagi追加しました」とLINEで報告してください。",
+    ("tachinomiya", "drink"):          "ドリンク系の写真が残り{n}枚です。ドリンク単体・カウンターでの一杯・乾杯シーン・夜の雰囲気の写真を10枚以上撮影してください。暗すぎ・ブレNG。撮影後はDriveへ入れて「drink追加しました」とLINEで報告してください。",
+    ("tachinomiya", "tourist_general"):"観光客向けの写真が残り{n}枚です。国際通り・観光スポット系の写真を10枚以上撮影してください。撮影後は「tourist_general追加しました」とLINEで報告してください。",
+    ("tachinomiya", "okinawa_food"):   "沖縄料理の写真が残り{n}枚です。島料理・郷土料理・泡盛などの写真を5枚以上撮影してください。撮影後は「okinawa_food追加しました」とLINEで報告してください。",
+    ("tachinomiya", "rafute"):         "ラフテー・豚料理の写真が残り{n}枚です。煮込み料理の写真を5枚以上撮影してください。",
+    ("tachinomiya", "general"):        "汎用写真が残り{n}枚です。店内・商品全般の写真を5枚以上撮影してください。",
+    ("catering", "catering_food"):     "ケータリング料理の写真が残り{n}枚です。料理全体・テーブル並び・オードブルの写真を10枚以上撮影してください。撮影後はDriveのCATERINGフォルダへ入れて「catering_food追加しました」とLINEで報告してください。",
+    ("catering", "corporate_event"):   "法人イベント・設営の写真が残り{n}枚です。会場設営・懇親会・表彰式の写真を10枚以上撮影してください。人の顔が映る場合は許可確認を。撮影後は「corporate_event追加しました」とLINEで報告してください。",
+    ("catering", "setup"):             "設営・セッティングの写真が残り{n}枚です。料理を並べた設営中の写真を10枚以上撮影してください。撮影後は「setup追加しました」とLINEで報告してください。",
+    ("catering", "decoration"):        "会場装飾の写真が残り{n}枚です。テーブル装飾・飾り付けの写真を10枚以上撮影してください。撮影後は「decoration追加しました」とLINEで報告してください。",
+    ("catering", "bento"):             "弁当・仕出しの写真が残り{n}枚です。9マス弁当・個包装弁当の写真を5枚以上撮影してください。撮影後は「bento追加しました」とLINEで報告してください。",
+    ("catering", "hors_doeuvre"):      "オードブルの写真が残り{n}枚です。オードブルセット・前菜盛り合わせの写真を5枚以上撮影してください。撮影後は「hors_doeuvre追加しました」とLINEで報告してください。",
+    ("catering", "general"):           "汎用写真が残り{n}枚です。ケータリング全般の写真を10枚以上撮影してください。",
+}
+
+
+def _notify_auto_post(biz_key: str, result: dict,
+                      remaining_by_theme: dict = None,
+                      today_post_no: int = None,
+                      daily_limit: int = 2) -> None:
+    """
+    自動投稿結果をLINE公式（事業別）へPush通知。
+    - dry_run=True時は呼び出し側でガード（この関数内でも二重チェック）
+    - 通知失敗は標準エラーログのみ（投稿処理には影響させない）
+    - Secret/token値は出力しない
+    - remaining_by_theme: テーマ別残り画像枚数 → 在庫サマリー＋補充依頼を付与
+    """
+    if result.get("dry_run"):
+        return
+    try:
+        import requests as _rq
+        token = os.getenv("LINE_OWNER_TOKEN", "")
+        dest  = os.getenv(_LINE_DEST_ENV.get(biz_key, ""), "")
+        if not token or not dest:
+            print(f"[notify] skip {biz_key}: env not set")
+            return
+
+        biz_name   = BIZ_NAME.get(biz_key, biz_key)
+        status     = result.get("status", "FAIL")
+        step       = result.get("step_failed", "")
+        reason     = result.get("reason", result.get("error", ""))
+        permalink  = result.get("permalink", "")
+        image_id   = result.get("image_id", "")
+        score      = result.get("quality_score", "")
+        post_theme = result.get("post_theme", "")
+        slot       = result.get("slot", "")
+
+        if status == "SUCCESS":
+            parts = [f"✅ 【{biz_name}】投稿完了"]
+            if slot:       parts.append(f"スロット: {slot}")
+            if post_theme: parts.append(f"テーマ: {post_theme}")
+            if image_id:   parts.append(f"画像: {image_id}　スコア: {score}")
+            if today_post_no is not None:
+                parts.append(f"本日 {today_post_no}本目 / {daily_limit}本")
+            if permalink:  parts.append(f"🔗 {permalink}")
+        else:
+            parts = [f"❌ 【{biz_name}】投稿失敗"]
+            if slot:       parts.append(f"スロット: {slot}")
+            if step:       parts.append(f"step: {step}")
+            if reason:     parts.append(f"理由: {str(reason)[:80]}")
+            if post_theme: parts.append(f"テーマ: {post_theme}")
+            parts.append(_NOTIFY_NEXT_ACTION.get(step, "→ THREADS_POST_LOGを確認してください"))
+
+        # 画像在庫サマリー
+        if remaining_by_theme:
+            thresholds = _THEME_THRESHOLDS.get(biz_key, {})
+            if thresholds:
+                parts.append("")
+                parts.append("📊 画像在庫")
+                for theme in thresholds.keys():
+                    n = remaining_by_theme.get(theme, 0)
+                    mark = "🚨" if n == 0 else ("⚠️" if n <= 3 else ("📷" if n <= 5 else "✅"))
+                    parts.append(f"{mark} {theme}: 残り{n}枚")
+
+        # 補充依頼（閾値以下のテーマ）
+        if remaining_by_theme:
+            alerts = _replenishment_alerts(biz_key, remaining_by_theme)
+            if alerts:
+                parts.append("")
+                parts.append("📷 補充依頼:")
+                for (_, _, urgency, msg) in alerts:
+                    parts.append(f"{urgency} {msg}")
+
+        _rq.post(
+            "https://api.line.me/v2/bot/message/push",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+            json={"to": dest, "messages": [{"type": "text", "text": "\n".join(parts)[:4900]}]},
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"[notify] error (ignored): {e}")
+
 
 def _now(): return datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")
 def _date(): return datetime.now(JST).strftime("%Y-%m-%d")
@@ -572,6 +748,7 @@ THREADS_POST_LOG_HEADER = [
     "実行日時", "事業キー", "事業名", "media_id", "post_url",
     "投稿本文", "画像URL", "画像ID", "投稿元行番号", "品質スコア",
     "dry_run", "実行結果", "エラー詳細", "token_check", "duplicate_check", "実行者",
+    "slot_name", "post_theme", "sales_category",
 ]
 
 IMAGE_LIBRARY_SS = "15cfsC2HIzu1FGW602dxqNuv-DJpmLiZhatvB-hDn2XM"
@@ -874,7 +1051,9 @@ def _select_image(creds_path: str, biz_key: str, post_text: str = "") -> dict:
 def _log_post_result(ss, biz_key: str, biz_name: str, media_id: str, post_url: str,
                      text: str, image_url: str, image_id: str, stock_row_no,
                      quality_score: int, dry_run: bool, result: str, error: str = "",
-                     token_check: str = "ok", dup_check: str = "ok"):
+                     token_check: str = "ok", dup_check: str = "ok",
+                     slot_name: str = "", post_theme: str = "",
+                     sales_category: str = ""):
     """THREADS_POST_LOG にログを1行追記"""
     ws = _sheet(ss, THREADS_POST_LOG_SHEET, THREADS_POST_LOG_HEADER)
     ws.append_row([
@@ -882,6 +1061,7 @@ def _log_post_result(ss, biz_key: str, biz_name: str, media_id: str, post_url: s
         text[:200], image_url, image_id, str(stock_row_no), quality_score,
         "TRUE" if dry_run else "FALSE", result, error[:200],
         token_check, dup_check, "AUTO",
+        slot_name, post_theme, sales_category,
     ], value_input_option="RAW")
 
 
@@ -970,6 +1150,23 @@ def run_full_auto(ss_id: str, creds_path: str, biz_key: str, dry_run: bool = Tru
         return fail("post_stock", f"SNS_POST_STOCK に利用可能な候補なし（スコア>={min_score}）")
     ok_step("post_stock", f"row#{candidate['row_no']} score={candidate['score']}")
     text = candidate["text"]  # テーマ判定のため事前取得
+
+    # 8.5. 美容NG表現チェック（beauty専用・薬機法対策）
+    if biz_key == "beauty":
+        try:
+            from businesses.beauty.beauty_threads_config import check_ng_expression
+            ng_result = check_ng_expression(text)
+            verdict = ng_result.get("verdict", "PASS")
+            found   = ng_result.get("found", [])
+            if verdict == "BLOCK":
+                return fail("beauty_ng_check",
+                            f"薬機法BLOCKワード検出: {', '.join(found)} → 投稿中止。投稿候補を修正してください。")
+            elif verdict == "REVISE":
+                return fail("beauty_ng_check",
+                            f"修正推奨ワード検出: {', '.join(found)} → 修正後に再実行してください。")
+            ok_step("beauty_ng_check", f"PASS（検出なし）")
+        except ImportError:
+            ok_step("beauty_ng_check", "SKIP（beauty_threads_config未ロード）")
 
     # 9. 重複チェック
     if check_duplicate_post(ss, biz_key, str(candidate["row_no"])):

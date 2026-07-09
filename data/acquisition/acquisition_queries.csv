@@ -1,0 +1,53 @@
+run_id,playbook_id,template_id,platform,query,generated_at
+
+run_1783324675712,pb_catering_corp,qt_corp_event,google,沖縄県 法人懇親会ケータリング 会社 OR 法人 問い合わせ,2026-07-06T07:57:55.720Z
+run_1783324675712,pb_catering_corp,qt_pain_ig,instagram_serp,site:instagram.com 企業 社内イベント手配 沖縄県,2026-07-06T07:57:55.726Z
+run_1783324675712,pb_catering_event,qt_corp_event,google,沖縄県 イベント・パーティーケータリング 会社 OR 法人 問い合わせ,2026-07-06T07:57:55.731Z
+run_1783324675712,pb_catering_event,qt_partner,instagram_serp,site:instagram.com 沖縄県 イベント会社 プロフィール,2026-07-06T07:57:55.733Z
+run_1783324675712,pb_catering_bar,qt_pain_ig,instagram_serp,site:instagram.com BAR パーティーフード手配 沖縄県,2026-07-06T07:57:55.736Z
+run_1783324675712,pb_catering_bar,qt_partner,instagram_serp,site:instagram.com 沖縄県 BAR プロフィール,2026-07-06T07:57:55.738Z
+run_1783324675712,pb_catering_hotel,qt_corp_event,google,沖縄県 ホテル・会場向けケータリング補完 会社 OR 法人 問い合わせ,2026-07-06T07:57:55.741Z
+run_1783324675712,pb_tachinomiya_tourist,qt_pain_ig,instagram_serp,site:instagram.com 旅行 どこ行く 沖縄 沖縄県那覇市国際通り,2026-07-06T07:57:55.744Z
+run_1783324675712,pb_tachinomiya_tourist,qt_partner,instagram_serp,site:instagram.com 沖縄県那覇市国際通り 旅行 プロフィール,2026-07-06T07:57:55.747Z
+run_1783324675712,pb_hotpot_inbound_en,qt_inbound_en,google,Okinawa Okinawa birthday dinner Okinawa birthday dinner,2026-07-06T07:57:55.750Z
+run_1783324675712,pb_hotpot_celebration,qt_pain_ig,instagram_serp,site:instagram.com 誕生日 特別なレストラン探し 沖縄県,2026-07-06T07:57:55.754Z
+run_1783324675712,pb_hotpot_partner,qt_corp_event,google,沖縄県 ホテル・旅行会社パートナー開拓 会社 OR 法人 問い合わせ,2026-07-06T07:57:55.758Z
+run_1783324675712,pb_hotpot_partner,qt_partner,instagram_serp,site:instagram.com 沖縄県 ホテル プロフィール,2026-07-06T07:57:55.761Z
+run_1783324675712,pb_beauty_local,qt_pain_ig,instagram_serp,site:instagram.com 美容 脱毛サロン探し 沖縄県西原,2026-07-06T07:57:55.766Z
+run_1783324675712,pb_beauty_collab,qt_partner,instagram_serp,site:instagram.com 沖縄県西原 美容室 プロフィール,2026-07-06T07:57:55.770Z
+run_1783324675712,pb_ai_store_owner,qt_corp_event,google,沖縄 AI店舗集客7日間立て直しキット 会社 OR 法人 問い合わせ,2026-07-06T07:57:55.775Z
+run_1783324675712,pb_ai_store_owner,qt_pain_ig,instagram_serp,site:instagram.com 飲食店 SNSが続かない 沖縄,2026-07-06T07:57:55.779Z
+run_1783324675712,pb_consulting_store,qt_pain_ig,instagram_serp,site:instagram.com 飲食店 SNSが続かない 沖縄,2026-07-06T07:57:55.784Z
+run_1783339937994,pb_catering_corp,qt_corp_event,google,沖縄県 法人懇親会ケータリング 会社 OR 法人 問い合わせ,2026-07-06T12:12:18.002Z
+run_1783339937994,pb_catering_corp,qt_pain_ig,instagram_serp,site:instagram.com 企業 社内イベント手配 沖縄県,2026-07-06T12:12:18.014Z
+run_1783339937994,pb_catering_event,qt_corp_event,google,沖縄県 イベント・パーティーケータリング 会社 OR 法人 問い合わせ,2026-07-06T12:12:18.022Z
+run_1783339937994,pb_catering_event,qt_partner,instagram_serp,site:instagram.com 沖縄県 イベント会社 プロフィール,2026-07-06T12:12:18.028Z
+run_1783339937994,pb_catering_bar,qt_pain_ig,instagram_serp,site:instagram.com BAR パーティーフード手配 沖縄県,2026-07-06T12:12:18.039Z
+run_1783339937994,pb_catering_bar,qt_partner,instagram_serp,site:instagram.com 沖縄県 BAR プロフィール,2026-07-06T12:12:18.045Z
+run_1783339937994,pb_catering_hotel,qt_corp_event,google,沖縄県 ホテル・会場向けケータリング補完 会社 OR 法人 問い合わせ,2026-07-06T12:12:18.053Z
+run_1783339937994,pb_tachinomiya_tourist,qt_pain_ig,instagram_serp,site:instagram.com 旅行 どこ行く 沖縄 沖縄県那覇市国際通り,2026-07-06T12:12:18.060Z
+run_1783339937994,pb_tachinomiya_tourist,qt_partner,instagram_serp,site:instagram.com 沖縄県那覇市国際通り 旅行 プロフィール,2026-07-06T12:12:18.068Z
+run_1783339937994,pb_hotpot_inbound_en,qt_inbound_en,google,Okinawa Okinawa birthday dinner Okinawa birthday dinner,2026-07-06T12:12:18.077Z
+run_1783339937994,pb_hotpot_celebration,qt_pain_ig,instagram_serp,site:instagram.com 誕生日 特別なレストラン探し 沖縄県,2026-07-06T12:12:18.085Z
+run_1783339937994,pb_hotpot_partner,qt_corp_event,google,沖縄県 ホテル・旅行会社パートナー開拓 会社 OR 法人 問い合わせ,2026-07-06T12:12:18.092Z
+run_1783339937994,pb_hotpot_partner,qt_partner,instagram_serp,site:instagram.com 沖縄県 ホテル プロフィール,2026-07-06T12:12:18.100Z
+run_1783339937994,pb_beauty_local,qt_pain_ig,instagram_serp,site:instagram.com 美容 脱毛サロン探し 沖縄県西原,2026-07-06T12:12:18.108Z
+run_1783339937994,pb_beauty_collab,qt_partner,instagram_serp,site:instagram.com 沖縄県西原 美容室 プロフィール,2026-07-06T12:12:18.116Z
+run_1783339937994,pb_ai_store_owner,qt_corp_event,google,沖縄 AI店舗集客7日間立て直しキット 会社 OR 法人 問い合わせ,2026-07-06T12:12:18.125Z
+run_1783339937994,pb_ai_store_owner,qt_pain_ig,instagram_serp,site:instagram.com 飲食店 SNSが続かない 沖縄,2026-07-06T12:12:18.133Z
+run_1783339937994,pb_consulting_store,qt_pain_ig,instagram_serp,site:instagram.com 飲食店 SNSが続かない 沖縄,2026-07-06T12:12:18.143Z
+run_1783414751395,pb_catering_corp,qt_corp_event,google,沖縄県 法人懇親会ケータリング 会社 OR 法人 問い合わせ,2026-07-07T08:59:11.402Z
+run_1783414751395,pb_catering_corp,qt_pain_ig,instagram_serp,site:instagram.com 企業 社内イベント手配 沖縄県,2026-07-07T08:59:11.418Z
+run_1783414751395,pb_catering_event,qt_corp_event,google,沖縄県 イベント・パーティーケータリング 会社 OR 法人 問い合わせ,2026-07-07T08:59:11.432Z
+run_1783414751395,pb_catering_event,qt_partner,instagram_serp,site:instagram.com 沖縄県 イベント会社 プロフィール,2026-07-07T08:59:11.445Z
+run_1783414751395,pb_catering_bar,qt_pain_ig,instagram_serp,site:instagram.com BAR パーティーフード手配 沖縄県,2026-07-07T08:59:11.456Z
+run_1783414751395,pb_catering_bar,qt_partner,instagram_serp,site:instagram.com 沖縄県 BAR プロフィール,2026-07-07T08:59:11.466Z
+run_1783414751395,pb_catering_hotel,qt_corp_event,google,沖縄県 ホテル・会場向けケータリング補完 会社 OR 法人 問い合わせ,2026-07-07T08:59:11.477Z
+run_1783414751395,pb_tachinomiya_tourist,qt_pain_ig,instagram_serp,site:instagram.com 旅行 どこ行く 沖縄 沖縄県那覇市国際通り,2026-07-07T08:59:11.488Z
+run_1783414751395,pb_tachinomiya_tourist,qt_partner,instagram_serp,site:instagram.com 沖縄県那覇市国際通り 旅行 プロフィール,2026-07-07T08:59:11.498Z
+run_1783414751395,pb_hotpot_inbound_en,qt_inbound_en,google,Okinawa Okinawa birthday dinner Okinawa birthday dinner,2026-07-07T08:59:11.510Z
+run_1783414751395,pb_hotpot_celebration,qt_pain_ig,instagram_serp,site:instagram.com 誕生日 特別なレストラン探し 沖縄県,2026-07-07T08:59:11.521Z
+run_1783414751395,pb_hotpot_partner,qt_corp_event,google,沖縄県 ホテル・旅行会社パートナー開拓 会社 OR 法人 問い合わせ,2026-07-07T08:59:11.533Z
+run_1783414751395,pb_hotpot_partner,qt_partner,instagram_serp,site:instagram.com 沖縄県 ホテル プロフィール,2026-07-07T08:59:11.545Z
+run_1783414751395,pb_ai_store_owner,qt_corp_event,google,沖縄 AI店舗集客7日間立て直しキット 会社 OR 法人 問い合わせ,2026-07-07T08:59:11.557Z
+run_1783414751395,pb_ai_store_owner,qt_pain_ig,instagram_serp,site:instagram.com 飲食店 SNSが続かない 沖縄,2026-07-07T08:59:11.569Z

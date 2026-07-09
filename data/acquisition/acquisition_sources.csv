@@ -1,0 +1,4 @@
+source_id,provider_name,provider_type,endpoint_url,auth_env_key,response_mapping,cost_per_call_usd,max_results_per_call,status,memo
+serpapi_google,SerpApi,serp,https://serpapi.com/search.json,SERPAPI_KEY,organic_results,0.01,10,active,主力SERP
+google_cse,Google CSE,serp,https://www.googleapis.com/customsearch/v1,GOOGLE_CSE_KEY,items,0.005,10,active,CSEフォールバック
+apify_ig,Apify Instagram,external,,APIFY_TOKEN,,0.05,20,paused,承認後に有効化

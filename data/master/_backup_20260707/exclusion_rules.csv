@@ -1,0 +1,15 @@
+rule_id,scope,business_id,offer_id,target_id,rule_type,keywords,reason,severity,action,status,memo,ext_json,updated_at,version
+er_beauty_cupping,business,tree_beauty,,,keyword,カッピング|カッピング療法|吸い玉,Tree Beautyの取扱いサービス対象外・規約上の安全対策,critical,exclude,active,絶対除外。クエリ・取得・訴求・初期データすべて,{},2026-07-06,1
+er_beauty_medical_claim,business,tree_beauty,,,keyword,治療|医療効果|改善効果|○○が治る|治癒|副作用,薬機法・景品表示法違反リスク,high,risk_high,active,後段薬機法レビュー必須,{},2026-07-06,1
+er_global_info_product,global,,,,,情報商材|副業で稼ぐ|note有料|Brain|副業コンサル|MLM|ネットワーク,情報商材・MLM系除外,high,exclude,active,,{},2026-07-06,1
+er_global_mass_scrape,global,,,,,無断転載|まとめサイト|パクツイ,品質担保のため除外,medium,exclude,active,,{},2026-07-06,1
+er_ai_meo_agency,business,ai_net_business,,,keyword,MEO業者|SNS運用代行|AIコンサル|ChatGPT講師|SEO会社,競合・代行業者を除外,medium,exclude,active,,{},2026-07-06,1
+er_ai_info_referral,business,ai_net_business,,,keyword,Brain販売者|note販売者|AI発信者,競合ではなくアフィリエイト候補として保持,low,keep_as_referral,active,アフィリエイト候補として活用,{},2026-07-06,1
+er_catering_competitor,business,trees_catering,,,keyword,ケータリング会社|仕出し業者|弁当業者|料理代行,競合ケータリング業者は除外だが調査保持,medium,keep_as_research,active,競合分析・市場調査として保持,{},2026-07-06,1
+er_hotpot_competitor,business,ryukyu_hotpot,,,keyword,火鍋 競合|鍋料理 レストラン 競合|高級鍋 沖縄,競合火鍋・高級鍋店は調査保持,medium,keep_as_research,active,,{},2026-07-06,1
+er_tachinomiya_competitor,business,tachinomiya,,,keyword,立ち飲み 競合|国際通り BAR 競合,競合立ち飲みはパートナー候補として保持,low,keep_as_partner,active,コラボ・紹介の可能性あり,{},2026-07-06,1
+er_beauty_competitor,business,tree_beauty,,,keyword,競合サロン|エステサロン 競合,競合美容サロンは調査保持,low,keep_as_research,active,,{},2026-07-06,1
+er_consulting_competitor,business,consulting,,,keyword,同業コンサル|MEO業者|SNS運用代行|AI活用コンサル,同業は除外（参考調査のみ）,medium,exclude,active,,{},2026-07-06,1
+er_event_company_partner,business,trees_catering,,,keyword,イベント会社|イベントプランナー|催事会社,イベント会社は営業候補またはパートナー候補,low,keep_as_partner,active,営業候補または協業候補として保持,{},2026-07-06,1
+er_no_inquiry_url,global,,,,,inquiry_url_missing,問い合わせ導線がない（Trees Cateringのみ必須確認）,medium,risk_medium,active,後段フィルターで弾く,{},2026-07-06,1
+er_hokkaido_steak,global,,,,,北谷ステーキ|東町モーニング|未確定事業,未確定事業は一切対象外,critical,exclude,active,絶対除外,{},2026-07-06,1

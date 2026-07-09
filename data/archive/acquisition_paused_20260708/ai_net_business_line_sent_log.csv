@@ -1,0 +1,11 @@
+executed_at,business_id,candidate_name,url,verdict,lead_score,platform,line_notified,auto_dm_sent,scheduler_off,serpapi_used,memo
+2026-07-07T19:36:36,ai_net_business,那覇市の美容サロンmiel（ミエル）,https://www.instagram.com/miel_naha_beauty/,SEND_READY,10,instagram,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,沖縄そば専門店オーナーのThreads,https://www.threads.net/@okinawa_soba_owner,SEND_READY,10,threads,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,那覇市 整体院かずま,https://maps.google.com/?q=整体院かずま+那覇,SEND_READY,9,google_maps,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,@izakaya_okinawa_keiko,https://www.instagram.com/izakaya_okinawa_keiko/,SEND_READY,9,instagram,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,ネイルサロン経営者 IG: @nail_okinawa_mika,https://www.instagram.com/nail_okinawa_mika/,SEND_READY,9,instagram,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,沖縄カフェ経営10年 note: AI集客を試してみた,https://note.com/okinawa_cafe10years/,REVISE,8,note,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,浦添市 エステサロン hinata,https://www.instagram.com/esthe_hinata_urasoe/,REVISE,8,instagram,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,Threads: @okinawa_gym_owner,https://www.threads.net/@okinawa_gym_owner,REVISE,8,threads,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,沖縄 美容師向けSNS副業コンサル会社,https://beauty-sns-consulting.co.jp,EXCLUDE,1,google_serp,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）
+2026-07-07T19:36:36,ai_net_business,AI副業コミュニティ（Brain） 沖縄支部,https://brain.base.ec/products/ai-fukugyou-okinawa,EXCLUDE,1,google_serp,False,false,true,false,LINE_OWNER_TOKEN 未設定（ローカル環境）

@@ -1,0 +1,26 @@
+category,id,name,status,scope_action,reason,reviewed_at
+business,ai_net_business,AIネットビジネス,active,TARGET,4事業対象,2026-07-07
+business,trees_catering,Trees Catering,active,TARGET,4事業対象,2026-07-07
+business,tachinomiya,TACHINOMIYA,active,TARGET,4事業対象,2026-07-07
+business,tree_beauty,Tree Beauty,inactive,EXCLUDED,acquisition対象外（status=inactive）,2026-07-07
+business,ryukyu_hotpot,琉球火鍋,active,TARGET,4事業対象,2026-07-07
+business,consulting,コンサル事業,inactive,EXCLUDED,acquisition対象外（status=inactive）,2026-07-07
+playbook,pb_catering_corp,trees_catering / of_catering_corporate|of_catering_bento / tg_corp_soumu,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_catering_event,trees_catering / of_catering_event / tg_event_company,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_catering_bar,trees_catering / of_catering_bar / tg_bar_club,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_catering_hotel,trees_catering / of_catering_hotel / tg_hotel_venue,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_tachinomiya_tourist,tachinomiya / of_tachinomiya_visit / tg_tourist_okinawa,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_hotpot_inbound_en,ryukyu_hotpot / of_hotpot_inbound / tg_inbound_tourist,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_hotpot_celebration,ryukyu_hotpot / of_hotpot_celebration / tg_celebration_diner,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_hotpot_partner,ryukyu_hotpot / of_hotpot_partner / tg_hotel_partner,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_beauty_local,tree_beauty / of_beauty_removal|of_beauty_whitening|of_beauty_yomogi / tg_beauty_local,inactive,SKIP,除外事業のplaybookのため非アクティブ,2026-07-07
+playbook,pb_beauty_collab,tree_beauty / of_beauty_collab / tg_beauty_partner,inactive,SKIP,除外事業のplaybookのため非アクティブ,2026-07-07
+playbook,pb_ai_store_owner,ai_net_business / of_ai_kit|of_ai_template / tg_store_owner_ai,active,RUN,DRY_RUN対象,2026-07-07
+playbook,pb_consulting_store,consulting / of_consulting_store / tg_store_owner_ai,inactive,SKIP,除外事業のplaybookのため非アクティブ,2026-07-07
+offer,of_beauty_removal,脱毛サービス,inactive,SKIP,tree_beauty は除外事業,2026-07-07
+offer,of_beauty_whitening,セルフホワイトニング,inactive,SKIP,tree_beauty は除外事業,2026-07-07
+offer,of_beauty_yomogi,よもぎ蒸し,inactive,SKIP,tree_beauty は除外事業,2026-07-07
+offer,of_beauty_collab,コラボ・相互送客先開拓,inactive,SKIP,tree_beauty は除外事業,2026-07-07
+offer,of_consulting_store,店舗向け集客改善コンサル,inactive,SKIP,consulting は除外事業,2026-07-07
+target,tg_beauty_local,地域美容関心層,inactive,SKIP,除外事業ターゲット（tree_beauty専用）,2026-07-07
+target,tg_beauty_partner,美容コラボ候補（相互送客）,inactive,SKIP,除外事業ターゲット（tree_beauty専用）,2026-07-07

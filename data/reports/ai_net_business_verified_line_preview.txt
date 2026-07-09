@@ -1,0 +1,43 @@
+【AIネットビジネス リプ営業候補】
+
+実行日時：2026-07-08T17:29:04
+対象：ai_net_business
+送信目的：手動コメント用
+自動リプ：なし
+自動DM：なし
+Scheduler：OFF
+
+━━━━━━━━━━━━
+本日のREPLY_READY：0件
+理由：実在確認済み候補なし（手動入力待ち）
+
+除外済み候補：10件（全件EXCLUDE）
+  - NOT_FOUND：6件（スマホ確認・アカウント実在しない）
+  - MOCK_ONLY：3件（DNS不能・検索URL・情報商材）
+  - PRIVATE_OR_REMOVED：1件（404）
+
+次アクション：
+  スマホで実在するアカウントを見つけて
+  data/master/manual_candidates.csv に1行追記してください
+
+  必須入力：
+    candidate_id          : 例）c001
+    business_name         : 店舗名またはアカウント名
+    account_url           : スマホで実際に開けたURL
+    platform              : instagram / threads / note
+    industry              : 業種（例：サロン、飲食店、整体）
+    location              : 場所（例：那覇市）
+    recent_post_exists    : TRUE
+    pain_signal_confirmed : TRUE
+    pain_text             : 実際の悩み投稿内容
+    manual_verified       : TRUE
+    final_status          : （空白でOK）
+
+  追記後に実行：
+    python3 scripts/acquisition/gen_manual_reply.py
+━━━━━━━━━━━━
+
+※このLINEは通知のみです。
+※自動リプ・自動DM・自動送信は実行していません。
+※未確認URL・mock候補・NOT_FOUND候補は除外済みです。
+※REPLY_READY=0件のため本番LINE送信はしていません。

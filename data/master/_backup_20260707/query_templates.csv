@@ -1,0 +1,16 @@
+template_id,target_type,platform,query_template,required_variables,example_output,intent,priority,status,memo,ext_json,updated_at,version
+qt_corp_event,company|event_company|hotel,google,"{location} {event_keyword} 会社 OR 法人 問い合わせ",location|event_keyword,沖縄 懇親会 会社 法人 問い合わせ,acquisition,1,active,,{},2026-07-06,1
+qt_pain_ig,store_owner|local_individual|restaurant,instagram_serp,"site:instagram.com {industry} {pain_keyword} {location}",industry|pain_keyword|location,"site:instagram.com 飲食店 投稿できない 沖縄",pain_discovery,2,active,,{},2026-07-06,1
+qt_inbound_en,tourist_individual,google,"Okinawa {intent_keyword} {occasion_keyword}",intent_keyword|occasion_keyword,"Okinawa birthday dinner reservation",inbound_acquisition,1,active,琉球火鍋インバウンド専用,{},2026-07-06,1
+qt_inbound_en_naha,tourist_individual,google,"Naha {intent_keyword} {occasion_keyword}",intent_keyword|occasion_keyword,"Naha premium dinner anniversary",inbound_acquisition,1,active,琉球火鍋インバウンド専用,{},2026-07-06,1
+qt_partner,salon|hotel|restaurant|event_company,instagram_serp,"site:instagram.com {location} {partner_industry} プロフィール",location|partner_industry,"site:instagram.com 那覇 美容室 プロフィール",partner_discovery,3,active,,{},2026-07-06,1
+qt_celebration_ja,local_individual,google,"{location} 誕生日ディナー OR 記念日ディナー {occasion_keyword}",location|occasion_keyword,"沖縄 誕生日ディナー 予約",celebration_acquisition,1,active,琉球火鍋誕生日・記念日用,{},2026-07-06,1
+qt_store_pain,store_owner,google,"{industry} {location} {pain_keyword} 困っている OR 悩み",industry|location|pain_keyword,"カフェ 沖縄 集客できない 困っている",pain_discovery,2,active,,{},2026-07-06,1
+qt_store_threads,store_owner,threads_serp,"site:threads.net {industry} {pain_keyword}",industry|pain_keyword,"site:threads.net 飲食店 SNS更新",pain_discovery,3,active,,{},2026-07-06,1
+qt_okinawa_en_wagyu,tourist_individual,google,"Okinawa wagyu hotpot restaurant",,,inbound_acquisition,1,active,固定クエリ・琉球火鍋専用,{},2026-07-06,1
+qt_okinawa_en_group,tourist_individual,google,"Okinawa group dinner reservation",,,inbound_acquisition,1,active,固定クエリ・琉球火鍋専用,{},2026-07-06,1
+qt_okinawa_en_celebration,tourist_individual,google,"Okinawa celebration restaurant Naha",,,inbound_acquisition,1,active,固定クエリ・琉球火鍋専用,{},2026-07-06,1
+qt_catering_inquiry,company,google,"{location} ケータリング 問い合わせ OR 依頼 法人",location,"沖縄 ケータリング 問い合わせ 法人",acquisition,1,active,Trees Catering専用,{},2026-07-06,1
+qt_beauty_local_ig,local_individual,instagram_serp,"site:instagram.com {service} {location} サロン",service|location,"site:instagram.com 脱毛 那覇 サロン",acquisition,2,active,Tree Beauty専用,{},2026-07-06,1
+qt_hotel_concierge,hotel,google,"{location} ホテル コンシェルジュ OR 宴会担当 レストラン 紹介",location,"那覇 ホテル コンシェルジュ レストラン 紹介",partner_discovery,2,active,琉球火鍋・TACHINOMIYA共用,{},2026-07-06,1
+qt_event_venue,event_company|hotel,google,"{location} イベントスペース OR 宴会場 ケータリング",location,"沖縄 イベントスペース ケータリング",acquisition,2,active,Trees Catering専用,{},2026-07-06,1

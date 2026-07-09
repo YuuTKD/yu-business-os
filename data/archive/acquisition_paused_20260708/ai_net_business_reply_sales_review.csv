@@ -1,0 +1,11 @@
+final_verdict,final_url_verdict,old_verdict,candidate_name,url,platform,reason,data_source,reply_ready,action,finalized_at
+EXCLUDE,NOT_FOUND,SEND_READY,那覇市の美容サロンmiel（ミエル）,https://www.instagram.com/miel_naha_beauty/,instagram,スマホInstagramで @miel_naha_beauty を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,NOT_FOUND,SEND_READY,沖縄そば専門店オーナーのThreads,https://www.threads.net/@okinawa_soba_owner,threads,スマホThreadsで @okinawa_soba_owner を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,MOCK_ONLY,SEND_READY,那覇市 整体院かずま,https://maps.google.com/?q=整体院かずま+那覇,google_maps,検索クエリURL（?q=）は特定ビジネスへの直リンクではない。mock生成フォーマット,fake_serp_realistic_mock,False,除外（実ビジネスは別途Googleマップで実際に検索して特定が必要）,2026-07-08T16:56:26
+EXCLUDE,NOT_FOUND,SEND_READY,@izakaya_okinawa_keiko,https://www.instagram.com/izakaya_okinawa_keiko/,instagram,スマホInstagramで @izakaya_okinawa_keiko を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,NOT_FOUND,SEND_READY,ネイルサロン経営者 IG: @nail_okinawa_mika,https://www.instagram.com/nail_okinawa_mika/,instagram,スマホInstagramで @nail_okinawa_mika を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,PRIVATE_OR_REMOVED,REVISE,沖縄カフェ経営10年 note,https://note.com/okinawa_cafe10years/,note,HTTP 404。noteアカウントが存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,NOT_FOUND,REVISE,浦添市 エステサロン hinata,https://www.instagram.com/esthe_hinata_urasoe/,instagram,スマホInstagramで @esthe_hinata_urasoe を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,NOT_FOUND,REVISE,Threads: @okinawa_gym_owner,https://www.threads.net/@okinawa_gym_owner,threads,スマホThreadsで @okinawa_gym_owner を検索 → 存在しない,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,MOCK_ONLY,EXCLUDE,沖縄 美容師向けSNS副業コンサル会社,https://beauty-sns-consulting.co.jp,google_serp,DNS解決不能。ドメイン実在しない。競合候補,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26
+EXCLUDE,MOCK_ONLY,EXCLUDE,AI副業コミュニティ（Brain） 沖縄支部,https://brain.base.ec/products/ai-fukugyou-okinawa,google_serp,情報商材競合。除外,fake_serp_realistic_mock,False,除外,2026-07-08T16:56:26

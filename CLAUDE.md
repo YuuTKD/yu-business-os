@@ -13,12 +13,64 @@ Claude Code はこのリポジトリの**司令塔**です。
 
 ---
 
+## 標準 PR フロー（自動受け渡し）
+
+Claude Code・Codex・GitHub は以下の順に自動で処理を進める。
+
+```
+1. PR 作成
+2. Claude Code がレビュー（GO / FIX / STOP）
+3. FIX の場合: Claude Code が自動修正 → commit → push → 再レビュー（最大2回）
+   3回目も FIX → 停止して人間確認
+   STOP の場合: 即停止・Merge禁止・理由報告・人間承認待ち
+4. Safe Merge Gate を実行
+5. 低リスク PR → 自動 Merge まで進む
+   高リスク PR → Merge 前で停止・人間承認待ち
+6. main pull で完了
+```
+
+### 低リスク PR（自動 Merge 可）
+
+変更ファイルが以下のみ、かつ下記すべての条件を満たす場合：
+- `docs/**` / `obsidian/**` / `data/revenue_portfolio/**` / `data/analytics/**`
+- `README.md` / `TASK.md` / `REPORT.md`
+
+条件：
+- Codex レビュー GO
+- Safe Merge Gate GO
+- `.env` 変更なし / APIキー・Token・Secret なし
+- 自動投稿・自動DM・自動リプ・deploy・Scheduler変更なし
+- Google Workspace 本番書き込みなし / 顧客データなし / 決済処理なし
+
+### 高リスク PR（Merge 前で停止・人間承認待ち）
+
+以下のいずれかを含む場合：
+- `scripts/**` / `agents/**` / `config/**` / `apps/**` / `core/**`
+- `.env` / `.env.local` / `package.json`
+- Cloud Run / Scheduler / API接続 / OAuth
+- LINE送信 / Gmail送信 / SNS投稿 / 自動DM / 自動リプ
+- Google Workspace 本番書き込み / 顧客データ / 決済
+- 商品マッチ先AIの再開
+
 ## Codex への指示方法
 
 1. `TASK.md` にタスク内容・スコープ・完了条件を記入する
 2. Codex が実装し `REPORT.md` を更新して PR を出す
-3. Claude Code が PR をレビューして判定を出す
-4. 人間（ゆうさん）が最終承認してマージする
+3. Claude Code が PR をレビューして判定を出す（GO / FIX / STOP）
+4. 低リスク → 自動 Merge。高リスク → 人間（ゆうさん）が最終承認してマージする
+
+## 完了報告の必須項目
+
+PR が完了した際は以下を必ず報告する：
+
+1. PR番号
+2. Codexレビュー結果（GO / FIX / STOP）
+3. FIX対応回数
+4. Safe Merge Gate結果
+5. 自動Mergeしたか（低リスクのみ）
+6. main pull結果
+7. git status clean確認
+8. 人間判断が必要な項目
 
 ---
 

@@ -4,7 +4,7 @@
 
 ---
 
-## 作業フロー
+## 作業フロー（標準自動受け渡し）
 
 ```
 人間（ゆうさん）
@@ -17,10 +17,30 @@ Codex（実装部隊）
   ▼
 Claude Code（司令塔）
   │  PR をレビュー（GO / FIX / STOP）
+  │
+  ├─ GO → Safe Merge Gate
+  │        ├─ 低リスク → 自動 Merge → main pull → 完了報告
+  │        └─ 高リスク → Merge前停止 → 人間承認待ち
+  │
+  ├─ FIX → Claude Code 自動修正 → commit → push → 再レビュー
+  │         最大2回。3回目 FIX → 停止・人間確認
+  │
+  └─ STOP → 即停止・Merge禁止・理由報告・人間承認待ち
   ▼
 人間（ゆうさん）
-     最終承認 → main にマージ
+     高リスクPR・STOP案件のみ最終承認 → main にマージ
 ```
+
+### PR リスク区分
+
+**低リスク（自動 Merge 可）**
+- 変更ファイル: `docs/**` / `obsidian/**` / `data/revenue_portfolio/**` / `data/analytics/**` / `README.md` / `TASK.md` / `REPORT.md`
+- 条件: Codexレビュー GO・Safe Merge Gate GO・.env変更なし・APIキー/Token/Secretなし・自動投稿/DM/リプ/deploy/Scheduler変更なし
+
+**高リスク（Merge前停止・人間承認待ち）**
+- `scripts/**` / `agents/**` / `config/**` / `apps/**` / `core/**` / `.env` / `.env.local`
+- Cloud Run / Scheduler / API接続 / OAuth / LINE送信 / Gmail送信 / SNS投稿 / 自動DM・自動リプ
+- Google Workspace本番書き込み / 顧客データ / 決済 / 商品マッチ先AIの再開
 
 ---
 
