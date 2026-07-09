@@ -1,0 +1,130 @@
+============================================================
+  商品マッチ候補品質 ラーニングノート
+  作成日: 2026-07-07（SerpAPI未使用 / realistic mock）
+============================================================
+
+■ SEND_READY になりやすい候補の共通点
+  - SNS更新・AI活用の悩みを公開投稿している店舗オーナー
+  - 観光メディア（国際通り・インバウンド）でPR受付中と明示
+  - ホテルのコンシェルジュ / ゲストハウス（紹介ルートが自然）
+  - 問い合わせURLがある or DM受付中を明示
+  - ニッチ（誕生日・記念日特化）で送客ニーズが明確
+
+■ HOLD/EXCLUDE になりやすい候補の共通点
+  - 大手（JTB・大型ホテル）は個人DM不向き → 担当部署への正式アプローチ必要
+  - フォロワー数・活動状況不明のローカルアカウント
+  - 既にサービス（AI集客等）を自分で始めている先
+  - 団体加盟・稟議が必要な組織
+
+■ クエリ改善案
+
+  【trees_catering 強いクエリ】
+  - 沖縄 法人 懇親会 食事 外注
+  - 那覇 レンタルスペース ケータリング
+  - 沖縄 展示会 フード 手配
+  - instagram 沖縄 イベントプランナー
+
+  【trees_catering 弱いクエリ（改善要）】
+  - 「沖縄 企業 懇親会」は競合業者も大量ヒット → 「外注 手配 困っている」など悩みワードを追加
+  - ホテル宴会クエリは大手しかヒットしない → 「サブ委託 外部ケータリング」に絞る
+
+  【tachinomiya 強いクエリ】
+  - site:instagram.com 沖縄旅行 国際通り PR受付
+  - 国際通り ゲストハウス 徒歩 観光案内
+  - 沖縄 観光 グルメメディア 掲載
+
+  【tachinomiya 弱いクエリ（改善要）】
+  - 「那覇 観光案内」はJTB等大手が上位 → 「小規模 個人 観光 発信」に絞る
+
+  【ryukyu_hotpot 強いクエリ】
+  - Okinawa concierge luxury hotel dinner recommendation
+  - 沖縄 記念日 ディナー おすすめ site:instagram.com
+  - 沖縄 インバウンド 旅行代理店 提携 募集
+
+  【ryukyu_hotpot 弱いクエリ（改善要）】
+  - 「沖縄 富裕層 観光」は英語クエリに変換すべき
+  - インバウンドは日本語検索より英語SERP優先
+
+  【ai_net_business 強いクエリ】
+  - site:instagram.com 美容サロン SNS 投稿 続かない
+  - site:twitter.com 飲食店 Google投稿 わからない
+  - ブログ 店舗オーナー SNS更新 やめた
+
+  【ai_net_business 弱いクエリ（改善要）】
+  - 「Claude Code 初心者」はエンドユーザーには刺さらない → 「AI 投稿 自動化 店舗」に変更
+  - Googleマップ系（GBP放置店舗）はSERP経由より直接検索がよい
+
+■ lead_score 調整案
+  - has_inquiry_url=True の場合 +1 (連絡先がある分スコアアップ)
+  - SNS系候補はフォロワー数/最終投稿日で ±1〜2 の調整を入れる
+  - 大手（ホテルチェーン・JTB）は自動的に -2（個人DM不向き）
+  - AI悩み投稿あり → +2（ニーズ明確シグナル）
+
+■ exclusion_rules 追加案
+  ①  er_large_corp_direct_dm
+     keywords: JTB|楽天トラベル|じゃらん|大手ホテルチェーン|東横イン|APA|ドーミーイン
+     reason: 大手は個人DM不可。正式取引窓口が別途必要
+     action: hold（除外でなく保留・取引窓口確認後）
+
+  ②  er_already_using_ai
+     keywords: AI 自動化 できた|ChatGPT 使ってる|自動投稿 導入済み|SNS 問題ない
+     scope: ai_net_business
+     reason: 既にAI活用中の先には上位商品・追加機能訴求に変更が必要
+     action: keep_as_upsell（除外ではなくアップセル候補に分類）
+
+  ③  er_competitor_media
+     keywords: SNS運用代行|MEO代行会社|マーケティング会社|集客コンサル
+     scope: ai_net_business
+     reason: 同業者・競合は対象外
+     action: exclude
+
+■ query_templates 改善案（新規追加提案）
+  qt_sns_struggle_ig:
+    template: 'site:instagram.com {pain_keyword} サロン OR 店舗 OR 飲食店'
+    intent: ai_net_business向け・SNS悩み特化
+
+  qt_gbp_inactive:
+    template: '{industry} {location} Googleビジネスプロフィール 放置 OR 更新停止'
+    intent: ai_net_business向け・GBP放置店舗
+
+  qt_inbound_luxury:
+    template: 'Okinawa luxury {occasion} dinner concierge recommendation'
+    intent: ryukyu_hotpot向け・英語インバウンド強化
+
+  qt_tachinomiya_guest:
+    template: '国際通り 徒歩 {distance} ゲストハウス OR 宿 観光案内 おすすめ'
+    intent: tachinomiya向け・近接宿泊施設特化
+
+■ playbook 改善案
+  pb_ai_gbp_inactive（新規提案）:
+    business_id: ai_net_business
+    offer_id: of_ai_kit
+    target: GBP放置店舗
+    query: qt_gbp_inactive
+    reason: GBP放置は問題意識が高くAI自動化の最初のエントリーに最適
+
+  pb_tachinomiya_guesthouse（新規提案）:
+    business_id: tachinomiya
+    target: ゲストハウス・民泊
+    query: qt_tachinomiya_guest
+    reason: 国際通り周辺の宿泊施設はスタッフ紹介・相互送客が現実的で稼働不要
+
+  pb_hotpot_inbound_ja（補完提案）:
+    business_id: ryukyu_hotpot
+    query: 日本語インバウンドクエリ追加（訪日 沖縄 ディナー 記念日）
+    reason: 現状 pb_hotpot_inbound_en は英語のみ。在日外国人・帰国子女等への日本語アプローチが欠けている
+
+■ 今回確認できた品質傾向
+  総候補数: 20件（4事業 × 5候補）
+  SEND_READY: 9件
+  REVISE    : 7件
+  HOLD      : 4件
+  EXCLUDE   : 0件
+
+■ 重要：SerpAPI本番時の品質予測
+  - 現在は realistic mock のため実際のURLは存在しない
+  - SerpAPIキー設定後は同じクエリで実候補を取得可能
+  - 期待品質: ai_net_business（SNS悩み系）が最も候補多数
+  - tachinomiya は観光系アカウントを Instagram SERP で発掘が最効率
+
+============================================================

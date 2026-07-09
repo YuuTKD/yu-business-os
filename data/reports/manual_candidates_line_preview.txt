@@ -1,0 +1,35 @@
+【AIネットビジネス リプ営業候補】
+
+実行日時：2026-07-08T17:19:10
+対象事業：ai_net_business
+本日のREPLY_READY：0件
+理由：実在確認済み候補なし（手動入力待ち）
+
+次アクション：
+  スマホで実在するアカウントを見つけて
+  data/master/manual_candidates.csv に記入してください
+
+記入が必要な列：
+  candidate_id    : 任意のID（例: c001）
+  business_name   : 店舗名またはアカウント名
+  account_url     : スマホで開けたURL
+  platform        : instagram / threads / note / other
+  industry        : 業種（例: サロン、飲食店、整体）
+  location        : 場所（例: 那覇市、浦添市）
+  recent_post_exists    : TRUE（最近の投稿を確認した）
+  pain_signal_confirmed : TRUE（悩みの投稿を実際に見た）
+  pain_text       : 実際の悩み投稿の内容（コピペでOK）
+  pain_post_url   : 悩み投稿のURL（あれば）
+  owner_note      : ゆうさんのメモ
+  manual_verified : TRUE
+  final_status    : （空白でOK）
+
+記入後に実行：
+  python3 scripts/acquisition/gen_manual_reply.py
+
+自動送信：なし
+Scheduler：OFF
+
+※このLINEは通知のみです。
+※コメント・DMは自動実行されていません。
+※候補0件のためアクション不要です。

@@ -1,0 +1,5 @@
+run_id,started_at,ended_at,dry_run,playbook_count,total_raw,total_duplicate,total_excluded,status
+
+run_1783324675712,2026-07-06T07:57:55.712Z,2026-07-06T07:57:55.789Z,true,12,180,173,0,completed
+run_1783339937994,2026-07-06T12:12:17.994Z,2026-07-06T12:12:18.151Z,true,12,180,180,0,completed
+run_1783414751395,2026-07-07T08:59:11.395Z,2026-07-07T08:59:11.581Z,true,9,150,150,0,completed

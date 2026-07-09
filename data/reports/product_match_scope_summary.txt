@@ -1,0 +1,57 @@
+============================================================
+  商品マッチ先AIエージェント スコープ確定サマリー
+  作成日: 2026-07-07
+============================================================
+
+■ 対象事業（TARGET_BUSINESSES）
+  ✅ ai_net_business  (AIネットビジネス)
+  ✅ trees_catering  (Trees Catering)
+  ✅ tachinomiya  (TACHINOMIYA)
+  ✅ ryukyu_hotpot  (琉球火鍋)  ※ business_id は ryukyu_hotpot（既存記録との整合性維持）
+
+■ 除外事業（status=inactive）
+  ❌ tree_beauty  (Tree Beauty)
+  ❌ consulting  (コンサル事業)
+
+■ 有効 Playbook（DRY_RUN対象 9件）
+  [ai_net_business]
+    - pb_ai_store_owner
+  [ryukyu_hotpot]
+    - pb_hotpot_inbound_en
+    - pb_hotpot_celebration
+    - pb_hotpot_partner
+  [tachinomiya]
+    - pb_tachinomiya_tourist
+  [trees_catering]
+    - pb_catering_corp
+    - pb_catering_event
+    - pb_catering_bar
+    - pb_catering_hotel
+
+■ 非アクティブ化した項目一覧
+  Playbook : pb_beauty_local, pb_beauty_collab, pb_consulting_store
+  Offer    : of_beauty_removal, of_beauty_whitening, of_beauty_yomogi, of_beauty_collab, of_consulting_store
+  Target   : tg_beauty_local, tg_beauty_partner
+  ExcRule  : er_beauty_cupping, er_beauty_medical_claim, er_beauty_competitor, er_consulting_competitor
+  QueryTpl : qt_beauty_local_ig
+
+■ config.json
+  ENABLED           : False   ← DRY_RUN=trueのまま
+  DRY_RUN           : True
+  APPROVED_FOR_LIVE : False
+  LINE_NOTIFY_ENABLED: False
+  TARGET_BUSINESSES : ['trees_catering', 'tachinomiya', 'ryukyu_hotpot', 'ai_net_business']
+
+■ 恒久禁止事項確認
+  ✅ tree_beauty は acquisition 対象外 (status=inactive)
+  ✅ 実投稿・自動送信なし（DRY_RUN=true）
+  ✅ LINE本番通知なし（LINE_NOTIFY_ENABLED=false）
+  ✅ Scheduler未変更
+  ✅ 有料API未使用（mock SERP のみ）
+  ✅ 既存CSV行削除ゼロ・列削除ゼロ
+  ✅ 火鍋 business_id は ryukyu_hotpot 維持（既存記録整合）
+
+■ 注意事項
+  - ryukyu_hotpot が 火鍋 / hinabe に相当する（IDは変更しない）
+  - 本番運用は ENABLED=true + APPROVED_FOR_LIVE=true + ゆうさん承認後
+============================================================

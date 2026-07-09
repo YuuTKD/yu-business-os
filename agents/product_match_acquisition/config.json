@@ -1,0 +1,64 @@
+{
+  "ENABLED": false,
+  "DRY_RUN": true,
+  "APPROVED_FOR_LIVE": false,
+  "TARGET_BUSINESSES": [
+    "ai_net_business"
+  ],
+  "TARGET_BUSINESSES_ALL": [
+    "trees_catering",
+    "tachinomiya",
+    "ryukyu_hotpot",
+    "ai_net_business"
+  ],
+  "TARGET_BUSINESSES_NOTE": "今回実行: ai_net_business のみ。全事業は TARGET_BUSINESSES_ALL を参照。",
+  "TARGET_OFFERS": [],
+  "TARGET_TARGETS": [],
+  "TARGET_PLAYBOOKS": [],
+  "DAILY_FETCH_LIMIT": 200,
+  "MONTHLY_COST_LIMIT": 60,
+  "MAX_RESULTS_PER_SOURCE": 50,
+  "MAX_RESULTS_PER_OFFER": 100,
+  "MAX_RESULTS_PER_TARGET": 100,
+  "ALLOWED_PROVIDERS": [
+    "serpapi",
+    "google_cse"
+  ],
+  "BLOCKED_PROVIDERS": [],
+  "REQUIRE_OWNER_APPROVAL_FOR_PAID_API": true,
+  "REQUIRE_OWNER_APPROVAL_FOR_LIVE_RUN": true,
+  "REQUIRE_OWNER_APPROVAL_FOR_NEW_OFFER": true,
+  "REQUIRE_OWNER_APPROVAL_FOR_NEW_TARGET": true,
+  "LINE_NOTIFY_ENABLED": false,
+  "LINE_NOTIFY_DRY_RUN": false,
+  "LINE_NOTIFY_TARGET": "owner_only",
+  "FALLBACK_ENABLED": true,
+  "EXCLUDE_COMPETITORS": true,
+  "EXCLUDE_INFO_PRODUCTS_WHEN_NOT_RELEVANT": true,
+  "WRITE_EXISTING_SHEETS_ALLOWED": false,
+  "ALLOW_PROFILE_ONLY_EXPANSION": true,
+  "LANGUAGE_TARGETS": [
+    "ja"
+  ],
+  "LLM_CLASSIFY_ENABLED": false,
+  "REQUIRE_URL_VERIFICATION": true,
+  "ALLOW_MOCK_FOR_LINE_NOTIFY": false,
+  "REQUIRE_PAIN_SIGNAL": true,
+  "FIRST_TOUCH_MODE": "reply",
+  "URL_VERIFICATION_NOTE": "fake_serp/mock候補はDRY_RUN専用。LINE本番通知はURL_VERIFIED + スマホ実在確認済みの候補のみ。FIRST_TOUCH_MODE=replyで初回はDMではなくリプ",
+  "CANDIDATE_QUALITY_RULES": {
+    "require_direct_url": true,
+    "reject_search_query_url": true,
+    "reject_dns_error": true,
+    "reject_http_404": true,
+    "instagram_requires_manual": true,
+    "threads_requires_manual": true,
+    "mock_serp_dry_run_only": true,
+    "reply_ready_requires_verified": true,
+    "note": "Instagram/ThreadsはHTTP 200でもスマホ手動確認必須。mock/fake SERP候補はDRY_RUN専用。LINE本番通知はURL_VERIFIED候補のみ。REPLY_READY=0件の場合は0件フォーマットで通知。"
+  },
+  "PAUSED": true,
+  "PAUSED_REASON": "fake/mock候補が混入しスマホ手動確認が必要になった。インバウンド型導線（自分の投稿→反応者管理）に切り替えるため一時停止。再開条件: SerpAPI等live検索が利用可能になった場合のみ。",
+  "PAUSED_AT": "2026-07-08",
+  "NEXT_ACTION": "inbound_reply_sales（自分の投稿への反応者管理）を優先"
+}

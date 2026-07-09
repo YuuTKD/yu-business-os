@@ -1,0 +1,55 @@
+{
+  "_comment": "DRY_RUN用モックSERPレスポンス。実際のAPIは呼び出さない。",
+  "results": [
+    {
+      "title": "株式会社サンプル商事 | 沖縄の企業イベント企画",
+      "url": "https://sample-shoji.co.jp",
+      "snippet": "沖縄県内の法人向け懇親会・歓送迎会・忘年会などのイベント企画をサポートしています。お気軽にお問い合わせください。"
+    },
+    {
+      "title": "沖縄イベントプランニング株式会社",
+      "url": "https://okinawa-event-planning.co.jp",
+      "snippet": "展示会・法人パーティー・表彰式の企画・運営。ケータリングのご手配もご相談ください。"
+    },
+    {
+      "title": "@okinawa_bar_lounge | Instagram",
+      "url": "https://www.instagram.com/okinawa_bar_lounge/",
+      "snippet": "那覇市内のBAR。貸切イベント・プライベートパーティー承ります。#沖縄BAR #貸切"
+    },
+    {
+      "title": "ホテルXXX那覇 | 宴会・イベント",
+      "url": "https://hotel-xxx-naha.co.jp/banquet",
+      "snippet": "宴会場・会議室完備。各種ご宴会・企業レセプション・結婚式二次会を承ります。"
+    },
+    {
+      "title": "沖縄旅行おすすめグルメ10選 | travel_okinawa",
+      "url": "https://www.instagram.com/travel_okinawa/",
+      "snippet": "Okinawa travel foodie. Best restaurants in Naha, Okinawa. Follow for daily updates! #OkinawaTravel #NahaFood"
+    },
+    {
+      "title": "誕生日ディナー 那覇のおすすめレストラン | 記念日グルメ",
+      "url": "https://naha-gourmet-guide.com/birthday-dinner",
+      "snippet": "那覇で誕生日ディナーを特別な場所で過ごしたい方へ。記念日におすすめのレストランを厳選してご紹介します。"
+    },
+    {
+      "title": "@naha_salon_beauty | 沖縄美容サロン",
+      "url": "https://www.instagram.com/naha_salon_beauty/",
+      "snippet": "那覇市の美容サロン。脱毛・ホワイトニング・よもぎ蒸しを提供しています。#那覇美容 #脱毛サロン"
+    },
+    {
+      "title": "沖縄カフェ店主のつぶやき | SNSの更新が続かない件",
+      "url": "https://okinawa-cafe-owner.blog.jp/sns-trouble",
+      "snippet": "毎日投稿しようと思っても全然続かない。インスタも更新止まって半年...お客さんに申し訳ない気持ちです。"
+    },
+    {
+      "title": "Okinawa wagyu hotpot experience | Premium dining Naha",
+      "url": "https://okinawa-premium-dining.com/wagyu-hotpot",
+      "snippet": "Experience authentic Okinawa wagyu hotpot in Naha. Perfect for special occasions, birthday dinners, and anniversary celebrations."
+    },
+    {
+      "title": "@tachinomiya_collab | 国際通り周辺グルメ紹介",
+      "url": "https://www.instagram.com/tachinomiya_collab/",
+      "snippet": "国際通り周辺のグルメ・BAR・居酒屋を紹介しています。2軒目どこ行く？#国際通りグルメ #沖縄立ち飲み"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "folder_id": "1KwoeBNTiN8jnmuBIBvz2D80xFnwxi2gu",
+  "total_items": 22,
+  "folder_count": 9,
+  "image_count": 13,
+  "lib_beauty_rows": 13,
+  "gcs_ready_count": 0,
+  "gcs_candidates_not_registered": 0,
+  "registered_no_gcs": 13,
+  "theme_stats": {
+    "salon_interior": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "hair_removal": {
+      "drive_total": 6,
+      "registered": 6,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "whitening": {
+      "drive_total": 1,
+      "registered": 1,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "yomogi": {
+      "drive_total": 5,
+      "registered": 5,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "cupping": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "staff": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "menu": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "campaign": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "general_beauty": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "unknown": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    },
+    "exclude_candidate": {
+      "drive_total": 1,
+      "registered": 1,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 1,
+      "unknown": 0
+    },
+    "human_check": {
+      "drive_total": 0,
+      "registered": 0,
+      "gcs_ready": 0,
+      "usable": 0,
+      "human_check": 0,
+      "exclude": 0,
+      "unknown": 0
+    }
+  },
+  "subfolder_names": []
+}
