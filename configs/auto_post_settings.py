@@ -52,11 +52,48 @@ BUSINESS_AUTO_POST_CONFIG = {
     },
 }
 
-# Scheduler設計（Cloud Schedulerに追加するときの設定案）
-# 注: 現時点では Scheduler は未追加。追加許可後にこの設定を使う。
+# スロット別設定（時間帯×テーマ制御）
+SLOT_CONFIG = {
+    "tachinomiya_morning": {
+        "business": "tachinomiya",
+        "posting_window": ("10:00", "12:00"),
+        "preferred_post_themes": ["sata_andagi", "tourist_general", "general"],
+    },
+    "tachinomiya_evening": {
+        "business": "tachinomiya",
+        "posting_window": ("18:00", "21:00"),
+        "preferred_post_themes": ["drink", "tourist_general", "okinawa_food", "general"],
+    },
+    "catering_lunch": {
+        "business": "catering",
+        "posting_window": ("09:00", "11:00"),
+        "preferred_post_themes": ["catering_food", "bento", "hors_doeuvre", "general"],
+    },
+    "catering_night": {
+        "business": "catering",
+        "posting_window": ("18:00", "20:00"),
+        "preferred_post_themes": ["corporate_event", "setup", "decoration", "catering_food", "general"],
+    },
+    "beauty_morning": {
+        "business": "beauty",
+        "posting_window": ("11:00", "12:00"),
+        "preferred_post_themes": [
+            "salon_interior",   # 1. 安全（NG表現リスク最低）
+            "hair_removal",     # 2. 主力サービス
+            "whitening",        # 3. 主力サービス
+            "yomogi",           # 4. 主力サービス
+            "general_beauty",   # 5. フォールバック
+        ],
+    },
+}
+
+# Scheduler設計（毎日実行・曜日制限なし）
 SCHEDULER_PLAN = {
-    "catering":      {"cron": "0 9 * * *",  "timezone": "Asia/Tokyo"},
-    "tachinomiya":   {"cron": "0 18 * * *", "timezone": "Asia/Tokyo"},
-    "beauty":        {"cron": "0 10 * * *", "timezone": "Asia/Tokyo"},
-    "ryukyu_hinabe": {"cron": "0 17 * * *", "timezone": "Asia/Tokyo"},
+    "tachinomiya_morning": {"cron": "0 10 * * *", "timezone": "Asia/Tokyo", "slot": "tachinomiya_morning"},
+    "tachinomiya_evening": {"cron": "0 18 * * *", "timezone": "Asia/Tokyo", "slot": "tachinomiya_evening"},
+    "catering_lunch":      {"cron": "0 9 * * *",  "timezone": "Asia/Tokyo", "slot": "catering_lunch"},
+    "catering_night":      {"cron": "0 18 * * *", "timezone": "Asia/Tokyo", "slot": "catering_night"},
+    # beauty_morning: 設計済み・未デプロイ。ゆうさん承認後に gcloud scheduler jobs create で追加すること。
+    # 有効化条件: auto_post_enabled=True かつ 全テーマGCS化済み かつ HTTP200確認済み
+    "beauty_morning":      {"cron": "0 11 * * *", "timezone": "Asia/Tokyo", "slot": "beauty_morning", "status": "NOT_DEPLOYED"},
 }
