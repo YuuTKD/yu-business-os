@@ -1,0 +1,33 @@
+===== Trees Catering 営業ファイル棚卸し =====
+実行日: 2026-07-10
+
+■ 既存コードファイル
+- core/catering_sales.py     ← 営業先管理・フォロー自動化（DM送信なし）
+- core/catering_report.py    ← 売上・営業レポート生成
+- core/catering_setup.py     ← シート初期セットアップ
+- core/catering_content.py   ← コンテンツ生成関連
+
+■ 既存設定ファイル
+- configs/env_templates/catering.yaml  ← 環境変数テンプレート
+
+■ 既存Googleスプレッドシート定義（catering_sales.py内）
+- CATERING_SALES_TARGETS     ← 営業先リスト・ステータス管理
+- CATERING_SALES_DASHBOARD   ← 数値サマリー
+
+■ 既存営業テンプレート（catering_sales.py内 SALES_TEMPLATES）
+- ホテル / BAR / クラブ / 企業 / レンタルスペース / 結婚式場 等
+  ⚠️ 全テンプレート: AI感スコア 6〜8 / 営業臭スコア 5〜7
+  ⚠️ 全テンプレート: human-natural-sales-copy 基準で全件不合格
+
+■ 不足しているもの（今回新規作成）
+- 自然文DM（業種別11種）      → catering_dm_templates_natural.txt
+- 問い合わせヒアリングテンプレ  → catering_quote_intake_template.txt
+- 見積返信文テンプレ           → catering_quote_intake_template.txt
+- 追客文テンプレ（1日/3日/7日後）→ catering_followup_templates_natural.txt
+- 営業先優先度テンプレート      → catering_sales_priority_template.csv
+- LINE通知プレビュー           → catering_owner_line_preview.txt
+- 品質チェックシート           → catering_natural_copy_quality_check.txt
+
+■ 判断が必要な項目（ゆうさんへ）
+- 既存 SALES_TEMPLATES を自然文版に差し替えるか（別タスク・高リスク）
+- CATERING_SALES_TARGETS シートへの営業先追加は手動でいいか

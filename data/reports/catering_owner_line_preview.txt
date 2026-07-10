@@ -1,0 +1,31 @@
+===== Trees Catering オーナーLINE通知プレビュー =====
+作成日: 2026-07-10
+※ これはプレビューのみ。LINE本番送信は行っていません。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【LINE通知プレビュー】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Catering 営業・追客導線 作成完了
+
+【業種別DM作成数】12パターン
+【合格数】12件（AI感0〜1 / 営業臭0〜2）
+【不合格→修正】2件（ホテル向け・BAR向け 既存テンプレートを自然文へ修正）
+
+【作成ファイル】
+1. catering_file_inventory.txt（棚卸し）
+2. catering_sales_priority_template.csv（優先度別営業先）
+3. catering_dm_templates_natural.txt（業種別DM 12パターン）
+4. catering_quote_intake_template.txt（ヒアリング・見積返信）
+5. catering_followup_templates_natural.txt（追客文 タイミング別）
+6. catering_owner_line_preview.txt（このファイル）
+7. catering_natural_copy_quality_check.txt（品質チェックシート）
+
+【ゆうさんへの確認事項】
+1. DM文面を確認してOKなら、1業種から試しに送ってみてください
+2. 既存の catering_sales.py の SALES_TEMPLATES も自然文に差し替えますか？
+   → 差し替える場合は別途PRを作成します（高リスク）
+3. 優先度S（法人イベント・イベント会社）から攻めますか？
+
+【自動送信していない確認】✅ 送信なし
+【Scheduler OFF確認】✅ OFF維持
