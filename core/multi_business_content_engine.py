@@ -171,9 +171,9 @@ def _fetch_real_image(
 
     # JPEG変換（LINE互換）
     try:
-        from PIL import Image as PILImage
+        from PIL import Image as PILImage, ImageOps
         buf_in = io.BytesIO(image_bytes)
-        img = PILImage.open(buf_in).convert("RGB")
+        img = ImageOps.exif_transpose(PILImage.open(buf_in)).convert("RGB")
         buf_out = io.BytesIO()
         img.save(buf_out, format="JPEG", quality=90)
         image_bytes = buf_out.getvalue()

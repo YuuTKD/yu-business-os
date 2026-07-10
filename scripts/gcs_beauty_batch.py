@@ -76,7 +76,8 @@ def _download_from_drive(drive_svc, file_id: str) -> bytes:
 
 
 def _to_jpeg(raw_bytes: bytes) -> bytes:
-    img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    from PIL import ImageOps
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(raw_bytes))).convert("RGB")
     out = io.BytesIO()
     img.save(out, format="JPEG", quality=88)
     return out.getvalue()
