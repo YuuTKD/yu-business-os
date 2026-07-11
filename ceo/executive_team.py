@@ -64,7 +64,7 @@ BUSINESS_TARGETS = {
         "sales_sheet": "06_売上管理", "date_col": 0, "amount_col": 3,
     },
     "TACHINOMIYA": {
-        "target": 1_200_000, "ss_env": "TACHINOMIYA_SPREADSHEET_ID", "status": "active",
+        "target": 5_500_000, "ss_env": "TACHINOMIYA_SPREADSHEET_ID", "status": "active",
         "sales_sheet": "02_日次売上", "date_col": 1, "amount_col": 2,
     },
     "琉球火鍋": {

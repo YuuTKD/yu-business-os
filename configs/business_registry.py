@@ -194,7 +194,7 @@ BUSINESSES: dict[str, BusinessConfig] = {
         "email": "tachinomiya.kokusaidoori.okinawa@gmail.com",
         "location": "沖縄県那覇市国際通り",
         "booking_url": "",
-        "monthly_target": 3_500_000,
+        "monthly_target": 5_500_000,  # 昼(サーターアンダギー)2.5M + 夜(BAR)3.0M
         "services": ["サーターアンダギー専門（昼）", "カジュアルBAR（夜）", "Uber Eats", "出前館"],
         "menu_map": {
             "keywords": {

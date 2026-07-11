@@ -56,12 +56,29 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-005（タスクタイトル）
+## TASK-006（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-005 YU Business OS 2.0 Phase B1.1 — Business Config 不一致の解消
+ステータス: DONE（2026-07-11 / feat/yu-business-os-2-resolve-config-mismatches）
+概要:
+  B1 で検出した5件の不一致をゆうさん確定値で解消し、Business Config CLI を
+  GO/exit 0（mismatch 0）にする。legacy alias は削除せず併存（互換期間）。
+完了条件:
+  - [x] TACHINOMIYA 目標 5.5M（昼2.5M+夜3.0M）へ legacy 統一 + 内訳 API
+  - [x] 火鍋 canonical ryukyu_hinabe / alias hinabe
+  - [x] LINE canonical/alias（tachinomiya/catering/hinabe）
+  - [x] comparator の alias 解決・昼夜整合・循環検知
+  - [x] Unit Test 19件追加 / 合計 161件 全 pass
+  - [x] Business Config CLI GO / exit 0
+スコープ:
+  - configs/business_registry.py · core/system_health.py · ceo/executive_team.py（値のみ）
+  - configs/businesses/registry.yaml · core/business_config/ · tests/business_config/
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-004 YU Business OS 2.0 Phase B1 — Business Config SSOT（Shadow）
 ステータス: DONE（2026-07-11 / feat/yu-business-os-2-business-config-ssot）

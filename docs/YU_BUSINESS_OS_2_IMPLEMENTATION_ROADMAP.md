@@ -448,3 +448,26 @@ Phase B2（既存本番コードの読込先を SSOT へ切替）に進む前提
 1. Comparator の FIX 乖離を legacy 側の整理で解消（executive_team target・hinabe 別名・LINE 名の統一）
 2. 対象事業を 1 つずつ・DRY_RUN で段階接続（1 PR 1 事業）
 3. 各接続は HIGH リスク → ゆうさん承認 → 人間 Merge → Cloud Run 再デプロイ
+
+---
+
+## Phase B1.1（乖離解消）— 実装完了 2026-07-11
+
+B1 で検出した5件の不一致を確定値で解消し、Business Config CLI を **GO / exit 0**
+（mismatch 0）にした。**Phase B2 の前提条件1が達成**。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| TACHINOMIYA 目標統一（5.5M=昼2.5M+夜3.0M）+ 内訳 API | ✅ |
+| 火鍋 canonical `ryukyu_hinabe` / alias `hinabe` | ✅ |
+| LINE canonical/alias（tachinomiya/catering/hinabe）| ✅ |
+| comparator の alias 解決・昼夜整合・循環検知 | ✅ |
+| Unit Test | ✅ **19件追加 / 合計 161件 全 pass** |
+| Business Config CLI | ✅ **GO / exit 0 / mismatch 0** |
+
+### Phase B2 前提の達成状況
+
+- [x] 前提1: FIX 乖離の解消（CLI GO）
+- [ ] 前提2-3: 1事業ずつ DRY_RUN 段階接続（Phase B2 本体）
