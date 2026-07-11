@@ -167,6 +167,10 @@ class BusinessConfig:
     currency: str = ""
     owner: str = ""
     monthly_target: Any = None
+    monthly_target_day: Any = None
+    monthly_target_night: Any = None
+    slug_aliases: List[str] = field(default_factory=list)
+    environment_variable_aliases: Dict[str, str] = field(default_factory=dict)
     services: BusinessServiceConfig = field(default_factory=BusinessServiceConfig)
     notification_policy: NotificationPolicy = field(default_factory=NotificationPolicy)
     automation_policy: AutomationPolicy = field(default_factory=AutomationPolicy)
@@ -193,6 +197,12 @@ class BusinessConfig:
             currency=str(d.get("currency", "")),
             owner=str(d.get("owner", "")),
             monthly_target=d.get("monthly_target"),
+            monthly_target_day=d.get("monthly_target_day"),
+            monthly_target_night=d.get("monthly_target_night"),
+            slug_aliases=_as_list(d.get("slug_aliases")),
+            environment_variable_aliases=(
+                d.get("environment_variable_aliases")
+                if isinstance(d.get("environment_variable_aliases"), dict) else {}),
             services=BusinessServiceConfig.from_dict(d.get("services")),
             notification_policy=NotificationPolicy.from_dict(d.get("notification_policy")),
             automation_policy=AutomationPolicy.from_dict(d.get("automation_policy")),

@@ -79,20 +79,19 @@ def compare(registry: BusinessConfigRegistry, adapter: LegacyAdapter) -> Compari
         diffs.append(ConfigDifference("legacy_unreadable", "*",
                      "content_engine", ce.error, "FIX"))
     else:
-        reg_slugs = set(reg_by_slug)
         for key, l in ce.businesses.items():
-            if key not in reg_slugs:
+            canonical = registry.resolve_slug(key)   # resolves legacy slug aliases
+            if canonical is None:
                 diffs.append(ConfigDifference(
                     "legacy_only", key, "content_engine_key",
-                    "content engine defines a key absent from the registry "
-                    "(possible duplicate/legacy alias)", "FIX"))
+                    "content engine defines a key with no registry slug/alias", "FIX"))
                 continue
-            r = reg_by_slug[key]
+            r = reg_by_slug[canonical]
             legacy_env = l.get("line_token_env")
-            if legacy_env and legacy_env not in r.environment_variable_names:
+            if legacy_env and not _env_known(r, legacy_env):
                 diffs.append(ConfigDifference(
-                    "env_var_name_mismatch", key, "line_token_env",
-                    f"content engine uses '{legacy_env}' not tracked in registry env names",
+                    "env_var_name_mismatch", canonical, "line_token_env",
+                    f"content engine uses '{legacy_env}' not tracked as canonical/alias",
                     "FIX"))
 
     # ── registry ↔ executive_team targets (value mismatch) ────
@@ -140,13 +139,17 @@ def _compare_authoritative(slug, r, l) -> List[ConfigDifference]:
         out.append(ConfigDifference("active_mismatch", slug, "active",
                    f"registry active={r.active} vs legacy status={l.get('status')!r}", "FIX"))
 
-    # env var names should be tracked in the registry.
+    # env var names should be tracked in the registry (canonical or alias).
     for env in (l.get("spreadsheet_id_env"), l.get("line_staff_env")):
-        if env and env not in r.environment_variable_names:
+        if env and not _env_known(r, env):
             out.append(ConfigDifference("env_var_name_mismatch", slug,
                        "environment_variable_names",
-                       f"legacy env name '{env}' not tracked in registry", "FIX"))
+                       f"legacy env name '{env}' not tracked as canonical/alias", "FIX"))
     return out
+
+
+def _env_known(r, env) -> bool:
+    return env in r.environment_variable_names or env in r.environment_variable_aliases
 
 
 def _first_spreadsheet_env(b) -> str:

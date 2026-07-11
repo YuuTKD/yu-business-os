@@ -2,6 +2,63 @@
 
 ---
 
+## Phase B1.1 完了報告 — Business Config 不一致の解消
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-resolve-config-mismatches |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（既存 `core/**` `configs/**` の値変更を含む）|
+| **売上直結度** | B（設定整合・監査性/売却可能性の向上）|
+
+### 確定値（ゆうさん確定）
+
+- TACHINOMIYA 月商目標: **5,500,000**（昼 2,500,000 + 夜 3,000,000）
+- 火鍋 canonical id: `ryukyu_hinabe` / legacy alias: `hinabe`
+- TACHINOMIYA staff LINE canonical: `LINE_TACHINOMIYA_STAFF_TOKEN` / legacy alias: `LINE_TACHINOMIYASTAFF_TOKEN`
+
+### 変更したファイル
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `configs/business_registry.py` | MODIFIED | tachinomiya monthly_target 3.5M→**5.5M** |
+| `core/system_health.py` | MODIFIED | MONTHLY_TARGETS tachinomiya 3.5M→**5.5M** |
+| `ceo/executive_team.py` | MODIFIED | BUSINESS_TARGETS TACHINOMIYA 1.2M→**5.5M** |
+| `configs/businesses/registry.yaml` | MODIFIED | 昼夜内訳・slug alias(hinabe)・env alias 追加 |
+| `core/business_config/models.py` | MODIFIED | day/night・slug_aliases・env aliases フィールド |
+| `core/business_config/loader.py` | MODIFIED | 昼夜整合・alias 検証/解決・LINE channel API |
+| `core/business_config/comparator.py` | MODIFIED | alias 解決で乖離を正常化 |
+| `tests/business_config/test_resolve_mismatches.py` | ADDED | 19件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（4件）| MODIFIED | canonical/alias/互換期間を役割別に追記 |
+
+### 解消結果
+
+- Business Config CLI: **FIX(5件) → GO / exit 0 / mismatch 0**
+- alias は削除せず併存（canonical 優先・legacy fallback）
+- token 値は読まず・出さず（NAME のみ）/ staff 通知は owner approval 必須
+- env 変数の実体名は変更なし（Cloud Run の実 env を壊さない）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 161 tests OK**（+19）
+- `python3 scripts/business_config/validate_business_configs.py` → **GO（exit 0）**
+- Registry CLI GO / `bash -n` OK / Secret scan CLEAN / 外部通信ゼロ
+
+### 既存構成への影響チェック
+
+- [x] legacy alias 削除：**なし**（併存）
+- [x] Cloud Run / Scheduler / 外部送信 / GCS / Sheets：**なし**
+- [x] env 変数の実体・本番読込先切替：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**
+- [x] Secret 直書き：**なし**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Phase B2 開始可否
+
+---
+
 ## Phase B1 完了報告 — Business Config SSOT（Shadow Mode）
 
 | 項目 | 内容 |

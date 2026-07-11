@@ -58,6 +58,7 @@ class BusinessConfigRegistry:
         self.path = rel if os.path.isabs(rel) else os.path.join(self.repo_root, rel)
         self._by_id: Dict[str, BusinessConfig] = {}
         self._by_slug: Dict[str, BusinessConfig] = {}
+        self._slug_alias: Dict[str, str] = {}
         self._issues: List[ConfigDifference] = []
         self._dupe_ids: set = set()
         self._dupe_slugs: set = set()
@@ -67,6 +68,7 @@ class BusinessConfigRegistry:
     # ── loading ───────────────────────────────────────────────
     def load(self) -> "BusinessConfigRegistry":
         self._by_id, self._by_slug, self._issues = {}, {}, []
+        self._slug_alias = {}
         self._dupe_ids, self._dupe_slugs = set(), set()
         self._load_error = None
         try:
@@ -109,6 +111,12 @@ class BusinessConfigRegistry:
                     "invalid_entry", "*", "businesses", "entry is not a mapping", "STOP"))
                 continue
             self._validate_and_add(raw)
+        # Order-independent: a slug alias must not collide with any real id/slug.
+        for alias, canonical_slug in self._slug_alias.items():
+            if alias in self._by_id or alias in self._by_slug:
+                self._issues.append(ConfigDifference(
+                    "cross_business_contamination", canonical_slug, "slug_aliases",
+                    f"alias '{alias}' collides with a real business id/slug", "STOP"))
         self._loaded = True
         return self
 
@@ -161,6 +169,41 @@ class BusinessConfigRegistry:
                     "env_name_format", bid, "environment_variable_names",
                     f"'{name}' is not an ENV_VAR_NAME style token", "FIX"))
 
+        # monthly_target day/night breakdown must sum to the total.
+        d, n, t = biz.monthly_target_day, biz.monthly_target_night, biz.monthly_target
+        if d is not None and n is not None:
+            try:
+                if int(d) + int(n) != int(t):
+                    self._issues.append(ConfigDifference(
+                        "target_breakdown_mismatch", bid, "monthly_target",
+                        f"day+night ({d}+{n}) != total ({t})", "FIX"))
+            except (TypeError, ValueError):
+                self._issues.append(ConfigDifference(
+                    "target_breakdown_type", bid, "monthly_target",
+                    "day/night/total must be integers", "FIX"))
+
+        # environment variable aliases: legacy -> canonical (must not cycle,
+        # target must be a canonical name, alias must not double as canonical).
+        canon = set(biz.environment_variable_names)
+        aliases = biz.environment_variable_aliases
+        for legacy, canonical in aliases.items():
+            if legacy in aliases.values() or canonical in aliases:
+                self._issues.append(ConfigDifference(
+                    "alias_cycle", bid, "environment_variable_aliases",
+                    f"alias cycle involving '{legacy}'/'{canonical}'", "STOP"))
+            if canonical not in canon:
+                self._issues.append(ConfigDifference(
+                    "unknown_alias_target", bid, "environment_variable_aliases",
+                    f"alias '{legacy}' points at non-canonical '{canonical}'", "FIX"))
+            if legacy in canon:
+                self._issues.append(ConfigDifference(
+                    "alias_is_canonical", bid, "environment_variable_aliases",
+                    f"'{legacy}' is both a canonical name and an alias", "FIX"))
+            if not re.fullmatch(r"[A-Z][A-Za-z0-9_]*", str(legacy)):
+                self._issues.append(ConfigDifference(
+                    "alias_name_format", bid, "environment_variable_aliases",
+                    f"'{legacy}' is not an env-var-name style token", "FIX"))
+
         if bid in self._by_id:
             self._dupe_ids.add(bid)
             self._issues.append(ConfigDifference(
@@ -175,6 +218,20 @@ class BusinessConfigRegistry:
 
         self._by_id[bid] = biz
         self._by_slug[biz.slug] = biz
+
+        # slug aliases: legacy keys that resolve to this business. They must not
+        # collide with a real business id/slug or another business's alias.
+        for alias in biz.slug_aliases:
+            if alias in self._by_id or alias in self._by_slug:
+                self._issues.append(ConfigDifference(
+                    "cross_business_contamination", bid, "slug_aliases",
+                    f"alias '{alias}' collides with an existing business", "STOP"))
+            elif alias in self._slug_alias and self._slug_alias[alias] != biz.slug:
+                self._issues.append(ConfigDifference(
+                    "cross_business_contamination", bid, "slug_aliases",
+                    f"alias '{alias}' already maps to '{self._slug_alias[alias]}'", "STOP"))
+            else:
+                self._slug_alias[alias] = biz.slug
 
     # ── queries ───────────────────────────────────────────────
     def _ensure(self):
@@ -200,7 +257,74 @@ class BusinessConfigRegistry:
 
     def get_business_by_slug(self, slug: str) -> Optional[BusinessConfig]:
         self._ensure()
-        return self._by_slug.get(slug)
+        if slug in self._by_slug:
+            return self._by_slug[slug]
+        canonical = self._slug_alias.get(slug)   # resolve legacy alias key
+        return self._by_slug.get(canonical) if canonical else None
+
+    def resolve_slug(self, slug: str) -> Optional[str]:
+        """Return the canonical slug for a slug or a legacy slug alias."""
+        self._ensure()
+        if slug in self._by_slug:
+            return slug
+        return self._slug_alias.get(slug)
+
+    def resolve_env_alias(self, business_id: str, name: str) -> Optional[str]:
+        """Map a (possibly legacy) env var NAME to its canonical NAME."""
+        biz = self.get_business(business_id)
+        if not biz:
+            return None
+        if name in biz.environment_variable_names:
+            return name
+        return biz.environment_variable_aliases.get(name)
+
+    def is_env_known(self, business_id: str, name: str) -> bool:
+        return self.resolve_env_alias(business_id, name) is not None
+
+    def get_owner_channel_env(self, business_id: str) -> Optional[str]:
+        biz = self.get_business(business_id)
+        return biz.notification_policy.owner_channel_env if biz else None
+
+    def get_staff_channel_env(self, business_id: str) -> Optional[str]:
+        """Canonical staff channel env NAME (never a value)."""
+        biz = self.get_business(business_id)
+        return biz.notification_policy.staff_channel_env if biz else None
+
+    def resolve_staff_env(self, business_id: str, available_names):
+        """Pick the env NAME to use for staff, canonical-first, legacy fallback.
+
+        ``available_names`` is a set of env var NAMES that exist (e.g. the keys
+        of os.environ). VALUES are never read. Returns None if neither the
+        canonical nor any legacy alias is available (caller must stop safely).
+        """
+        biz = self.get_business(business_id)
+        if not biz:
+            return None
+        available = set(available_names or [])
+        canonical = biz.notification_policy.staff_channel_env
+        if canonical and canonical in available:
+            return canonical
+        for legacy, canon in biz.environment_variable_aliases.items():
+            if canon == canonical and legacy in available:
+                return legacy  # compatibility fallback
+        return None
+
+    def get_monthly_target_breakdown(self, business_id: str):
+        """Return (total, day, night). total defaults to day+night if unset."""
+        biz = self.get_business(business_id)
+        if not biz:
+            return (None, None, None)
+        total, day, night = biz.monthly_target, biz.monthly_target_day, biz.monthly_target_night
+        if total is None and day is not None and night is not None:
+            try:
+                total = int(day) + int(night)
+            except (TypeError, ValueError):
+                total = None
+        return (total, day, night)
+
+    def staff_send_requires_owner_approval(self, business_id: str) -> bool:
+        """Staff notifications always require owner approval in Phase B1.x."""
+        return True
 
     def get_service_config(self, business_id: str, service: str):
         biz = self.get_business(business_id)

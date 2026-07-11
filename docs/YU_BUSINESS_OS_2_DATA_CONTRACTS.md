@@ -590,3 +590,28 @@ Comparator   : GO  完全一致
                STOP secret / cross-business 混入 / dup id・slug / production 誤表示
 CLI exit     : 0=GO / 1=FIX / 2=STOP / 3=INTERNAL_ERROR（fail-closed）
 ```
+
+### 12.4 Phase B1.1 追加スキーマ（canonical / alias / 昼夜内訳）
+
+```yaml
+  monthly_target: int             # 合計（= day + night のとき一致必須、不一致は FIX）
+  monthly_target_day: int         # 昼の内訳（任意）
+  monthly_target_night: int       # 夜の内訳（任意）
+  slug_aliases: [string]          # legacy キー（例 hinabe → canonical ryukyu_hinabe）
+  environment_variable_aliases:   # legacy env 名 → canonical env 名（NAME のみ）
+    LEGACY_NAME: CANONICAL_NAME
+```
+
+**確定 canonical 値（2026-07-11 ゆうさん確定）**
+- TACHINOMIYA 月商: **5,500,000**（昼 2,500,000 + 夜 3,000,000）
+- 火鍋 canonical id: `ryukyu_hinabe` / legacy alias: `hinabe`
+- TACHINOMIYA staff LINE canonical: `LINE_TACHINOMIYA_STAFF_TOKEN` /
+  legacy alias: `LINE_TACHINOMIYASTAFF_TOKEN`（`TACHINOMIYA_LINE_STAFF_TOKEN` も alias）
+
+**alias 方針**: canonical 優先・legacy は互換読込のみ・即削除しない。
+`resolve_staff_env(biz, available_names)` は canonical→legacy の順で解決し、
+どちらも無ければ `None`（安全停止）。**token 値は読まず・出さず**、返すのは NAME のみ。
+staff 通知は常に owner approval 必須（`staff_send_requires_owner_approval` = True）。
+
+**検証（loader/comparator）**: 昼夜合計不一致→FIX / alias 循環→STOP /
+unknown alias target→FIX / slug alias が実 id/slug と衝突→STOP。

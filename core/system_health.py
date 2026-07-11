@@ -43,7 +43,7 @@ CLOUD_RUN_SERVICES = {
 MONTHLY_TARGETS = {
     "beauty":     500_000,
     "catering":   800_000,
-    "tachinomiya": 3_500_000,
+    "tachinomiya": 5_500_000,  # 昼2.5M + 夜3.0M（SSOT整合）
     "hinabe":     1_500_000,
     "pasta":      2_000_000,
     "z1":         1_500_000,

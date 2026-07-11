@@ -104,6 +104,8 @@ businesses:
       - CATERING_SPREADSHEET_ID
       - CATERING_LINE_STAFF_TOKEN
       - LINE_OWNER_TOKEN
+    environment_variable_aliases:
+      LINE_cateringSTAFF_TOKEN: CATERING_LINE_STAFF_TOKEN
     legacy_sources:
       - configs/business_registry.py::BUSINESSES
       - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
@@ -211,7 +213,9 @@ businesses:
     timezone: Asia/Tokyo
     currency: JPY
     owner: yuya_tokuda@trees-catering.com
-    monthly_target: 3500000
+    monthly_target: 5500000
+    monthly_target_day: 2500000
+    monthly_target_night: 3000000
     services:
       cloud_run_service: tachinomiya-ai
       line: true
@@ -220,7 +224,7 @@ businesses:
     notification_policy:
       mode: UNKNOWN
       owner_channel_env: LINE_OWNER_TOKEN
-      staff_channel_env: TACHINOMIYA_LINE_STAFF_TOKEN
+      staff_channel_env: LINE_TACHINOMIYA_STAFF_TOKEN
     automation_policy:
       scheduler_status: UNKNOWN
       dry_run_default: true
@@ -240,14 +244,17 @@ businesses:
       - scheduler_status
     environment_variable_names:
       - TACHINOMIYA_SPREADSHEET_ID
-      - TACHINOMIYA_LINE_STAFF_TOKEN
+      - LINE_TACHINOMIYA_STAFF_TOKEN
       - LINE_OWNER_TOKEN
+    environment_variable_aliases:
+      LINE_TACHINOMIYASTAFF_TOKEN: LINE_TACHINOMIYA_STAFF_TOKEN
+      TACHINOMIYA_LINE_STAFF_TOKEN: LINE_TACHINOMIYA_STAFF_TOKEN
     legacy_sources:
       - configs/business_registry.py::BUSINESSES
       - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
     migration_status: SHADOW_DEFINED
     metadata:
-      notes: Scheduler currently OFF (ALMOST_READY); see tachinomiya readiness report
+      notes: Scheduler currently OFF (ALMOST_READY); target 5.5M = day 2.5M + night 3.0M
 
   - id: ryukyu_hinabe
     slug: ryukyu_hinabe
@@ -286,13 +293,17 @@ businesses:
       - daily_post_limit
       - posting_window
       - scheduler_status
+    slug_aliases:
+      - hinabe
     environment_variable_names:
       - HINABE_SPREADSHEET_ID
       - HINABE_LINE_STAFF_TOKEN
       - LINE_OWNER_TOKEN
+    environment_variable_aliases:
+      LINE_hinabeSTAFF_TOKEN: HINABE_LINE_STAFF_TOKEN
     legacy_sources:
       - configs/business_registry.py::BUSINESSES
       - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
     migration_status: SHADOW_DEFINED
     metadata:
-      notes: content engine also defines a legacy alias key 'hinabe' (duplicate)
+      notes: canonical id ryukyu_hinabe; legacy alias key 'hinabe' accepted via slug_aliases
