@@ -56,12 +56,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-004（タスクタイトル）
+## TASK-005（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-004 YU Business OS 2.0 Phase B1 — Business Config SSOT（Shadow）
+ステータス: DONE（2026-07-11 / feat/yu-business-os-2-business-config-ssot）
+概要:
+  6事業の設定を単一正本（shadow）で表現し、既存設定との差分を自動検査する。
+  本番接続・既存設定の削除/上書き/切替は行わない（Shadow Mode）。
+完了条件:
+  - [x] configs/businesses/registry.yaml（6事業・secret-free）
+  - [x] core/business_config/（models/loader/legacy_adapter/comparator）
+  - [x] scripts/business_config/validate_business_configs.py（exit 0/1/2/3）
+  - [x] Unit Test 47件追加 / 合計 142件 全 pass
+  - [x] 設計書5件へ役割別に追記
+スコープ（追加のみ・既存無変更）:
+  - configs/businesses/ · core/business_config/ · scripts/business_config/
+  - tests/business_config/ · docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-003 YU Business OS 2.0 Phase D-Lite — Governance × PR Auto Flow
 ステータス: DONE（2026-07-11 / feat/yu-business-os-2-governance-pr-gate）

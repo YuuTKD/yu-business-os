@@ -536,3 +536,57 @@ Phase A で実装した registry / governance の**確定スキーマ**。実装
 1 = FIX   （FIX severity のみ）
 2 = STOP  （STOP severity あり、または config ロード失敗）
 ```
+
+---
+
+## Contract 12: Business Config SSOT（Phase B1 実装済み・Shadow）
+
+`configs/businesses/registry.yaml` の**確定スキーマ**。実装は
+`core/business_config/models.py`。
+
+### 12.1 Business エントリ
+
+```yaml
+- id: string                 # 一意（重複は STOP）
+  slug: string               # 一意（重複は STOP）
+  display_name: string
+  brand_name: string
+  business_type: string
+  status: ACTIVE | INACTIVE | PLANNED | EXCLUDED | ARCHIVED
+  active: bool
+  timezone: string
+  currency: string
+  owner: string
+  monthly_target: int
+  services:                  # cloud_run_service / scheduler_jobs / line / threads / pos ...
+  notification_policy:       # mode / owner_channel_env / staff_channel_env（env 名のみ）
+  automation_policy:         # scheduler_status / dry_run_default（本番状態は UNKNOWN 既定）
+  posting_policy:            # platforms / daily_post_limit=UNKNOWN / posting_window=UNKNOWN
+  approval_policy:           # high_risk_requires_owner
+  protected_fields: [string] # daily_post_limit / posting_window / scheduler_status
+  environment_variable_names: [NAME]   # 変数名のみ（値は禁止）
+  legacy_sources: [path::VAR]          # リポジトリ内パスのみ（traversal は STOP）
+  migration_status: LEGACY_ONLY | SHADOW_DEFINED | VERIFIED
+  metadata: {}
+```
+
+### 12.2 禁止フィールド / 禁止値（loader が STOP）
+
+- フィールド名: `token` `api_key` `secret` `password` `private_key`
+  `client_secret` `credentials` `access_token` `refresh_token` `bearer`
+- 値: secret-like（`sk-…` `ghp_…` `AIza…` `xox…` `-----BEGIN`）
+- `environment_variable_names`: 値ではなく **NAME** のみ（`[A-Z][A-Z0-9_]*`）
+- `migration_status`: `PRODUCTION_CONNECTED` / `PARTIALLY_CONNECTED` /
+  `READY_FOR_ADAPTER` は shadow mode で **禁止**（STOP）
+- `legacy_sources`: リポジトリ外パス・`../` traversal は **STOP**
+
+### 12.3 Loader / Comparator の戻り値
+
+```
+LoaderStatus : AVAILABLE | INACTIVE | NOT_FOUND | INVALID_CONFIG |
+               LEGACY_ONLY | SHADOW_DEFINED | VERIFIED
+Comparator   : GO  完全一致
+               FIX 非危険な乖離（値/型/subset/missing）— 自動上書きしない
+               STOP secret / cross-business 混入 / dup id・slug / production 誤表示
+CLI exit     : 0=GO / 1=FIX / 2=STOP / 3=INTERNAL_ERROR（fail-closed）
+```

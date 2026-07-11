@@ -415,3 +415,36 @@ scripts/acquisition・Tree Beauty・daily_post_limit 保護。
 
 ### 次 Phase 候補
 - **Phase B: Single Source of Truth**（設定二重管理の解消）— HIGH・売却可能性向上
+
+---
+
+## Phase B1（Business Config SSOT / Shadow）— 実装完了 2026-07-11
+
+事業設定の正本を shadow mode で追加。本番接続は行わず、既存設定との差分を
+自動検査できる状態にした。
+
+### 実装スコープ（完了・追加のみ）
+
+| 項目 | 状態 |
+|---|---|
+| `configs/businesses/registry.yaml`（6事業・secret-free）| ✅ |
+| `core/business_config/`（models / loader / legacy_adapter / comparator）| ✅ |
+| `scripts/business_config/validate_business_configs.py`（exit 0/1/2/3）| ✅ |
+| Unit Test | ✅ **47件追加 / 合計 142件 全 pass** |
+
+### 検証結果
+
+```
+python3 scripts/business_config/validate_business_configs.py → FIX (exit 1)
+  ※ 実 legacy に本物の乖離があるため FIX が正しい出力（自動上書きしない）
+python3 -m unittest discover -s tests → Ran 142 tests OK
+```
+
+Shadow 保証: 本番未接続 / 自動同期なし / 既存設定無変更 / PRODUCTION_CONNECTED なし。
+
+### Phase B2 の条件（本番接続）
+
+Phase B2（既存本番コードの読込先を SSOT へ切替）に進む前提:
+1. Comparator の FIX 乖離を legacy 側の整理で解消（executive_team target・hinabe 別名・LINE 名の統一）
+2. 対象事業を 1 つずつ・DRY_RUN で段階接続（1 PR 1 事業）
+3. 各接続は HIGH リスク → ゆうさん承認 → 人間 Merge → Cloud Run 再デプロイ

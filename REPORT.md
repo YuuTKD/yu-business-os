@@ -2,6 +2,62 @@
 
 ---
 
+## Phase B1 完了報告 — Business Config SSOT（Shadow Mode）
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-business-config-ssot |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/**` `configs/**` `scripts/**` への追加を含む）|
+| **売上直結度** | B（設定二重管理の解消・売却可能性/監査性向上の基盤）|
+
+### 実装したファイル（すべて新規追加・既存の変更/削除なし）
+
+| ファイル | 変更種別 | 概要 |
+|---|---|---|
+| `configs/businesses/registry.yaml` | ADDED | 6事業 SSOT（shadow・env 名のみ・secret-free）|
+| `core/business_config/models.py` | ADDED | スキーマ（dataclass + enum）|
+| `core/business_config/loader.py` | ADDED | 読込・検証・クエリ（fail-closed）|
+| `core/business_config/legacy_adapter.py` | ADDED | 既存設定を AST 静的読取（import/exec なし）|
+| `core/business_config/comparator.py` | ADDED | SSOT↔Legacy 差分 → GO/FIX/STOP |
+| `core/business_config/__init__.py` | ADDED | 公開 API |
+| `scripts/business_config/validate_business_configs.py` | ADDED | 検証 CLI（exit 0/1/2/3）|
+| `tests/business_config/*.py` | ADDED | Unit Test 47件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（5件）| MODIFIED | Phase B1 状況を役割別に追記 |
+
+### 発見した既存の二重管理（Comparator が検出）
+
+- 事業設定が 5 箇所に分散（`business_registry.py` / `_BUSINESS_CONFIGS` / `system_health.py` / `executive_team.py` / `entrypoint.py`）
+- TACHINOMIYA 月商目標: `executive_team` 1,200,000 ≠ 正本 3,500,000
+- `_BUSINESS_CONFIGS` に `ryukyu_hinabe` と重複する別名キー `hinabe`
+- LINE トークン env 名が `business_registry.py` と `_BUSINESS_CONFIGS` で不一致（catering/tachinomiya/hinabe）
+
+### Shadow Mode（本番未接続）
+
+- 本番読込先は既存のまま（`business_registry.py` / `_BUSINESS_CONFIGS` を**削除も切替もしない**）
+- 値の自動同期・自動上書きなし / `PRODUCTION_CONNECTED` なし（全事業 SHADOW_DEFINED）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 142 tests OK**（47件追加）
+- `python3 scripts/business_config/validate_business_configs.py` → **FIX（exit 1）**（実 legacy 乖離を正しく報告）
+- `python3 scripts/registry/validate_registry.py` → GO（既存不変）/ `bash -n pr_auto_flow.sh` → OK
+- Secret scan CLEAN / 外部通信ゼロ / AST 静的読取（exec/eval なし・import 副作用なし）
+
+### 既存構成への影響チェック
+
+- [x] 既存設定の削除・上書き・本番読込先切替：**なし**
+- [x] Cloud Run / Scheduler / 外部送信 / GCS / Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**
+- [x] Secret 直書き：**なし**（env 名のみ）
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Phase B2（本番接続）の開始可否
+
+---
+
 ## Phase D-Lite 完了報告 — Governance Validator × PR Auto Flow 接続
 
 | 項目 | 内容 |
