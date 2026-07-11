@@ -471,3 +471,27 @@ B1 で検出した5件の不一致を確定値で解消し、Business Config CLI
 
 - [x] 前提1: FIX 乖離の解消（CLI GO）
 - [ ] 前提2-3: 1事業ずつ DRY_RUN 段階接続（Phase B2 本体）
+
+---
+
+## Phase B2-1（TACHINOMIYA Shadow 接続）— 実装完了 2026-07-11
+
+TACHINOMIYA の設定に SSOT を **Shadow Mode で副次接続**。Legacy と SSOT を
+実行時比較できるが、**返却値は Legacy のまま**（runtime_source=LEGACY）。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| `shadow_adapter.py`（OFF/SHADOW_ONLY/ENFORCE_COMPARE・fail-closed）| ✅ |
+| `scripts/business_config/check_tachinomiya_shadow.py`（exit 0/1/2/3）| ✅ |
+| runtime_source=LEGACY 不変・SSOT 値は本番へ流さない | ✅ |
+| Unit Test | ✅ **20件追加 / 合計 181件 全 pass** |
+| Shadow CLI | ✅ **GO / exit 0 / mismatch 0** |
+
+### 次の切替条件（Phase B2-2）
+
+1. Shadow 比較が一定期間 GO（mismatch 0）で安定
+2. ENFORCE_COMPARE を CI/検証で常時 GO
+3. 1 事業（TACHINOMIYA）ずつ read-source を SSOT へ切替（HIGH・owner 承認・人間 Merge）
+   ※ env 変数の実体は変えず、参照経路のみ段階切替

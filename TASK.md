@@ -56,12 +56,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-006（タスクタイトル）
+## TASK-007（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-006 YU Business OS 2.0 Phase B2-1 — TACHINOMIYA SSOT Shadow 接続
+ステータス: DONE（2026-07-11 / feat/tachinomiya-ssot-shadow-connection）
+概要:
+  TACHINOMIYA の Legacy 設定と SSOT を実行時比較する Shadow Adapter を追加。
+  runtime_source は常に LEGACY（本番読込先は切替えない）。
+完了条件:
+  - [x] core/business_config/shadow_adapter.py（OFF/SHADOW_ONLY/ENFORCE_COMPARE）
+  - [x] scripts/business_config/check_tachinomiya_shadow.py（exit 0/1/2/3）
+  - [x] runtime_source=LEGACY 不変・SSOT 値を本番へ流さない
+  - [x] Unit Test 20件追加 / 合計 181件 全 pass
+  - [x] Shadow CLI GO / exit 0 / mismatch 0
+スコープ（追加のみ・本番未切替）:
+  - core/business_config/ · scripts/business_config/ · tests/business_config/
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-005 YU Business OS 2.0 Phase B1.1 — Business Config 不一致の解消
 ステータス: DONE（2026-07-11 / feat/yu-business-os-2-resolve-config-mismatches）
