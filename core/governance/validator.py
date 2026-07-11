@@ -81,6 +81,11 @@ SAFE_ACTIONS = {
     "governance_check", "generate_doc", "run_tests", "dry_run",
 }
 
+# Review actions: decision follows the computed risk level (not a raw side
+# effect). Used by the PR governance gate. CRITICAL / blocked-path / hard-stop
+# checks still run first, so those always win over the risk mapping below.
+REVIEW_ACTIONS = {"pr_change_review", "pr_merge"}
+
 HIGH_RISK_PATH_PREFIXES = ("core/", "scripts/", "agents/", "config/", "configs/",
                            "workflows/", "apps/")
 BLOCKED_PATH_PREFIXES = ("scripts/acquisition/",)
@@ -161,7 +166,9 @@ class GovernanceValidator:
 
         # 3. Blocked paths (scripts/acquisition/**) → STOP regardless of action.
         for path in request.file_paths:
-            norm = path.replace("\\", "/").lstrip("./")
+            norm = path.replace("\\", "/")
+            if norm.startswith("./"):
+                norm = norm[2:]
             if any(norm.startswith(pref) for pref in BLOCKED_PATH_PREFIXES):
                 return GovernanceResult(Decision.STOP.value,
                                         [f"touches blocked path '{path}' (scripts/acquisition frozen)"],
@@ -209,6 +216,26 @@ class GovernanceValidator:
             return GovernanceResult(Decision.STOP.value,
                                     ["declared risk is CRITICAL"],
                                     ["critical_risk_stop"], RiskLevel.CRITICAL.value)
+
+        # 8b. PR review actions: decision follows the computed risk level.
+        #     (CRITICAL / blocked / hard-stop already handled above.)
+        if action in REVIEW_ACTIONS:
+            eff_risk = risk or self._risk_for(request)
+            if eff_risk == RiskLevel.HIGH.value:
+                if request.owner_approved:
+                    return GovernanceResult(
+                        Decision.GO.value,
+                        ["HIGH-risk change approved by owner "
+                         "(auto-merge remains forbidden — human must merge)"],
+                        ["no_auto_merge_for_high_risk"], RiskLevel.HIGH.value)
+                return GovernanceResult(
+                    Decision.OWNER_APPROVAL_REQUIRED.value,
+                    ["HIGH-risk PR requires owner approval before merge"],
+                    ["no_auto_merge_for_high_risk"], RiskLevel.HIGH.value)
+            return GovernanceResult(
+                Decision.GO.value,
+                [f"review change classified {eff_risk or RiskLevel.LOW.value} risk"],
+                ["review_ok"], eff_risk or RiskLevel.LOW.value)
 
         # 9. Owner-approval gated categories.
         gated = self._categorise_gated(action, agent)
@@ -277,7 +304,9 @@ class GovernanceValidator:
 
     def _touches_high_risk_paths(self, file_paths) -> bool:
         for path in file_paths or []:
-            norm = path.replace("\\", "/").lstrip("./")
+            norm = path.replace("\\", "/")
+            if norm.startswith("./"):
+                norm = norm[2:]
             if any(norm.startswith(pref) for pref in HIGH_RISK_PATH_PREFIXES):
                 return True
         return False

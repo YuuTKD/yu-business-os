@@ -172,8 +172,59 @@ rm data/reports/fix_attempt_pr_<N>.txt
 
 ---
 
+## Governance Gate（Phase D-Lite・2026-07-11 追加）
+
+Phase A の Governance Validator を PR フローの**先頭**に接続した。gh に依存せず
+ローカル diff だけで判定するため、PR 作成前でも実行できる。
+
+### 実行位置
+
+```
+pr_auto_flow.sh 起動
+  → [0/5] Governance Gate（governance_gate.py・ローカル diff）  ← 追加
+       GO 以外はここで停止（fail-closed）
+  → [1/5] PR 情報取得（gh）
+  → [2/5] リスク分類
+  → ... 既存フロー
+```
+
+### アダプタ構成（既存判定ロジックを重複させない）
+
+```
+scripts/agent/governance_gate.py   diff 収集 → 事実抽出 → Validator 呼び出し
+core/governance/diff_risk.py       ファイル→risk 分類（単一ソース・純関数）
+core/governance/validator.py       GO/FIX/STOP/OWNER_APPROVAL 判定（唯一の決定者）
+```
+
+Shell は exit code だけを解釈する:
+
+| exit | 判定 | Shell の挙動 |
+|---|---|---|
+| 0 | GO | 既存フロー継続 |
+| 10 | FIX | 停止 |
+| 20 | OWNER_APPROVAL_REQUIRED | ゆうさん承認待ちで停止 |
+| 30 | STOP | 即停止 |
+| 40 | INTERNAL_ERROR | STOP 扱い（fail-closed）|
+
+### 安全特性
+
+- **fail-closed**: import 失敗 / git diff 失敗 / base ref 不存在 / 不明 decision → INTERNAL_ERROR → STOP
+- **owner approval**: `YU_OWNER_APPROVED=true`（1回限り・非永続・.env に書かない）または `--owner-approved`
+- **HIGH** は承認があっても自動 Merge しない（human merge のみ）
+- **CRITICAL**（.env / credentials / secret / scripts/acquisition / Tree Beauty 有効化 / daily_post_limit 変更）は承認があっても STOP
+- Secret 値・token 値は一切出力しない
+- 外部通信なし・gh 不要・GitHub API 不要
+
+### rollback
+
+追加のみ（`governance_gate.py` / `diff_risk.py` / 4行未満の pr_auto_flow.sh 呼び出し追加）。
+PR を Merge しなければ影響なし。既存 pr_auto_flow.sh の gh ベース処理は不変。
+
+---
+
 ## 更新履歴
 
 | 日付 | 変更内容 |
 |---|---|
 | 2026-07-10 | Codex 120点運用ルール初版作成 |
+| 2026-07-11 | Phase D-Lite: Governance Gate をフロー先頭に接続（fail-closed）|
