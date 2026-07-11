@@ -56,12 +56,30 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-003（タスクタイトル）
+## TASK-004（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-003 YU Business OS 2.0 Phase D-Lite — Governance × PR Auto Flow
+ステータス: DONE（2026-07-11 / feat/yu-business-os-2-governance-pr-gate）
+概要:
+  Phase A の Governance Validator を既存 PR 自動フローへ安全に接続し、
+  PR ごとに GO / FIX / STOP / OWNER_APPROVAL_REQUIRED を機械判定する。
+  gh 非依存・fail-closed・自動 Merge なし・外部送信なし。
+完了条件:
+  - [x] scripts/agent/governance_gate.py（exit 0/10/20/30/40）
+  - [x] core/governance/diff_risk.py（分類・単一ソース）
+  - [x] core/governance/validator.py に pr_change_review 追加
+  - [x] pr_auto_flow.sh Step 0 に接続（fail-closed）
+  - [x] Unit Test 39件追加 / 合計 91件 全 pass
+  - [x] 既存ドキュメント4件へ役割別に追記
+スコープ（追加中心・既存 gh 処理は不変）:
+  - scripts/agent/ · core/governance/ · tests/agent/ · tests/governance/
+  - docs/AUTO_PR_FLOW.md · .claude/commands/pr-auto-flow.md
+  - docs/YU_BUSINESS_OS_2_{ROADMAP,EXECUTIVE_SUMMARY}.md · REPORT.md · TASK.md
 
 ## TASK-002 YU Business OS 2.0 Phase A — Registry & Governance 土台
 ステータス: DONE（2026-07-11 / feat/yu-business-os-2-phase-a-registry-governance）

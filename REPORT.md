@@ -2,6 +2,56 @@
 
 ---
 
+## Phase D-Lite 完了報告 — Governance Validator × PR Auto Flow 接続
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-governance-pr-gate |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/**` `scripts/**` の変更を含む）|
+| **売上直結度** | B（自動化ガバナンス強化・事故防止基盤）|
+
+### 実装したファイル
+
+| ファイル | 変更種別 | 概要 |
+|---|---|---|
+| `scripts/agent/governance_gate.py` | ADDED | ローカル diff アダプタ。diff収集→事実抽出→Validator呼出。exit 0/10/20/30/40 |
+| `core/governance/diff_risk.py` | ADDED | ファイル→risk 分類・secret/runaway 検知（純関数・単一ソース）|
+| `core/governance/validator.py` | MODIFIED | `pr_change_review` レビューアクションを追加 + `_norm` の `.env`/`.github` 判定バグ修正 |
+| `scripts/agent/pr_auto_flow.sh` | MODIFIED | Step 0 に Governance Gate を接続（fail-closed）+ `emit_owner` 追加 |
+| `tests/agent/test_governance_gate.py` | ADDED | ゲート 28 シナリオ + 統合テスト |
+| `tests/governance/test_diff_risk.py` | ADDED | 分類器 単体テスト |
+| `docs/AUTO_PR_FLOW.md` ほか docs 3件 | MODIFIED | Gate 実行位置・exit code・fail-closed を役割別に追記 |
+
+### 接続方式（既存判定を重複させない）
+
+- 決定ロジックは **Validator 一本**（gate は事実収集のみ）
+- Shell は exit code だけ解釈（GO=0 / FIX=10 / OWNER=20 / STOP=30 / INTERNAL_ERROR=40）
+- fail-closed: import/git/base-ref/unknown decision → INTERNAL_ERROR → STOP
+- gh 非依存・GitHub API 不要・外部通信ゼロ
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 91 tests OK**（39件追加）
+- `bash -n scripts/agent/pr_auto_flow.sh` → OK
+- `python3 scripts/registry/validate_registry.py` → GO（exit 0・既存不変）
+- Secret scan CLEAN（テスト fixture は実行時組み立てで自己検知を回避）
+
+### 既存構成への影響チェック
+
+- [x] 既存 pr_auto_flow.sh の gh ベース処理：**不変**（先頭に gate 追加のみ）
+- [x] Cloud Run / Scheduler / 外部送信 / GCS / Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**（gate が保護）
+- [x] Secret 直書き：**なし**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High リスク → ゆうさん最終承認）
+- 次工程 Phase B の開始可否
+
+---
+
 ## Phase A 完了報告 — YU Business OS 2.0 Registry & Governance 土台
 
 | 項目 | 内容 |
