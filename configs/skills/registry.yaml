@@ -1,0 +1,344 @@
+# YU Business OS 2.0 — Skill Registry (Phase A)
+# Single source of truth for skills. Loaded by core/registry/skill_registry.py.
+#
+# Rules encoded here:
+#   * permissions default to false (default deny); skills never hold
+#     deploy / scheduler / secret_access.
+#   * skill_md_path points at a real SKILL.md, or is empty for skills that do
+#     not yet exist (those are active: false with a LOGIC_DIRECT_APPLY fallback).
+#   * fallback_behavior: DIRECT_SKILL_MD | LOGIC_DIRECT_APPLY | INACTIVE | STOP
+#
+# This file is data only. It does not connect to any external system.
+
+version: 1
+
+skills:
+  - id: pre-deploy-qa
+    name: Pre-Deploy QA
+    version: "0.1.0"
+    skill_md_path: skills/pre-deploy-qa/SKILL.md
+    description: 本番作業(デプロイ/push/設定変更)前の安全確認をGO/STOP/要確認で判定する
+    triggers:
+      - デプロイ
+      - push前確認
+      - 本番作業
+      - gcloud run deploy
+    input_schema:
+      work_summary: string
+      changed_files: list
+      target: object
+    output_schema:
+      decision: string
+      reasons: list
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - secret_output
+      - cloud_run_deploy
+      - scheduler_on
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - Secret混入を検出できる
+      - 誤プロジェクトを検出できる
+      - Scheduler誤ONを検出できる
+      - 既存ファイル削除を検出できる
+    owner_approval_required: false
+    active: true
+
+  - id: scheduler-readiness-check
+    name: Scheduler Readiness Check
+    version: "0.1.0"
+    skill_md_path: skills/scheduler-readiness-check/SKILL.md
+    description: 定期自動実行をONにしてよいかREADY/ALMOST_READY/NOT_READYで判定する
+    triggers:
+      - SchedulerをONにしたい
+      - 自動化を回し始めたい
+      - 無人運用に切り替えたい
+      - 定期実行の準備できてる
+    input_schema:
+      business: string
+      checklist: list
+    output_schema:
+      readiness: string
+      blockers: list
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - scheduler_on
+      - scheduler_create
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 画像在庫不足を検出できる
+      - token期限未確認を検出できる
+    owner_approval_required: false
+    active: true
+
+  - id: sns-post-quality-check
+    name: SNS Post Quality Check
+    version: "0.1.0"
+    skill_md_path: skills/sns-post-quality-check/SKILL.md
+    description: SNS投稿文を0-10点で採点しPASS/REVISE/BLOCKで自動投稿可否を判定する
+    triggers:
+      - 投稿文チェック
+      - この投稿出していい
+      - 品質スコア
+      - 自動投稿の検品
+    input_schema:
+      post_text: string
+      platform: string
+    output_schema:
+      score: number
+      verdict: string
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - sns_post
+      - threads_post
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 低品質投稿をBLOCKできる
+    owner_approval_required: false
+    active: true
+
+  - id: image-library-manager
+    name: Image Library Manager
+    version: "0.1.0"
+    skill_md_path: skills/image-library-manager/SKILL.md
+    description: IMAGE_LIBRARYの分類/GCS化状況/在庫/使用履歴を点検し撮影依頼文を生成する
+    triggers:
+      - 画像在庫
+      - IMAGE_LIBRARY
+      - GCS化
+      - 画像が足りない
+      - 撮影依頼
+    input_schema:
+      business: string
+    output_schema:
+      inventory: object
+      shortages: list
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - gcs_write
+      - image_library_write
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 画像不足カテゴリを検出できる
+    owner_approval_required: false
+    active: true
+
+  - id: sop-writer
+    name: SOP Writer
+    version: "0.1.0"
+    skill_md_path: skills/sop-writer/SKILL.md
+    description: 決定や指示を担当/期限/完了条件/報告テンプレ付きのSOPに変換する
+    triggers:
+      - スタッフに指示して
+      - 手順書にして
+      - 仕組み化して
+      - マニュアル化
+    input_schema:
+      instruction: string
+    output_schema:
+      sop: string
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - line_send
+      - gmail_send
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 担当と期限と完了条件が揃っている
+    owner_approval_required: false
+    active: true
+
+  - id: pr-review-gate
+    name: PR Review Gate
+    version: "0.1.0"
+    skill_md_path: skills/pr-review-gate/SKILL.md
+    description: PRを受け取りレビュー/FIX/Safe Merge Gateまで進める標準フローを管理する
+    triggers:
+      - PRをレビューして
+      - PR受信
+      - Safe Merge Gate
+    input_schema:
+      pr_number: number
+      changed_files: list
+    output_schema:
+      decision: string
+      risk_level: string
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - auto_merge_high_risk
+      - cloud_run_deploy
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 高リスクPRの自動Mergeを止められる
+    owner_approval_required: false
+    active: true
+
+  - id: debt-collection
+    name: Debt Collection
+    version: "0.1.0"
+    skill_md_path: skills/debt-collection/SKILL.md
+    description: 未収金の督促文をレベル別テンプレートで作成する(送信はしない)
+    triggers:
+      - 未収金
+      - 督促
+      - 支払い催促
+    input_schema:
+      debtor: string
+      amount: number
+      level: string
+    output_schema:
+      message: string
+    applicable_businesses:
+      - all
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - line_send
+      - gmail_send
+      - dm_send
+    fallback_behavior: DIRECT_SKILL_MD
+    qa_criteria:
+      - 段階に応じた文面を生成できる
+    owner_approval_required: false
+    active: true
+
+  # ── 未実装スキル: 実体(SKILL.md)がないため active: false ──
+  # 虚偽のパスは書かない。呼ばれた場合はロジック直接適用へfallbackする。
+  - id: lead-scoring
+    name: Lead Scoring
+    version: "0.0.0"
+    skill_md_path: ""
+    description: 見込み客を評価しスコアリングする(未実装・設計のみ)
+    triggers:
+      - リード評価
+      - 見込み客スコア
+    input_schema:
+      lead: object
+    output_schema:
+      score: number
+    applicable_businesses:
+      - catering
+      - pasta_pasta
+      - z1
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - dm_send
+    fallback_behavior: LOGIC_DIRECT_APPLY
+    qa_criteria: []
+    owner_approval_required: false
+    active: false
+
+  - id: sales-dm-generator
+    name: Sales DM Generator
+    version: "0.0.0"
+    skill_md_path: ""
+    description: 営業DM文面を生成する(未実装・送信は常に人間承認)
+    triggers:
+      - 営業DM作成
+      - DM文面
+    input_schema:
+      target: object
+    output_schema:
+      dm_text: string
+    applicable_businesses:
+      - catering
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - dm_send
+      - line_send
+    fallback_behavior: LOGIC_DIRECT_APPLY
+    qa_criteria: []
+    owner_approval_required: true
+    active: false
+
+  - id: quote-generation
+    name: Quote Generation
+    version: "0.0.0"
+    skill_md_path: ""
+    description: 見積書のドラフトを生成する(未実装・設計のみ)
+    triggers:
+      - 見積作成
+      - 見積書
+    input_schema:
+      items: list
+    output_schema:
+      quote: object
+    applicable_businesses:
+      - catering
+    permissions:
+      read: true
+      write: false
+      external_send: false
+      deploy: false
+      scheduler: false
+      secret_access: false
+    prohibited_actions:
+      - gmail_send
+    fallback_behavior: LOGIC_DIRECT_APPLY
+    qa_criteria: []
+    owner_approval_required: false
+    active: false

@@ -1,0 +1,142 @@
+# YU Business OS 2.0 — Governance Policies (Phase A)
+# Loaded by core/governance/validator.py. Data only; no external I/O.
+#
+# Each policy has: id, description, enforcement (STOP | FIX | OWNER_APPROVAL),
+# and an optional note. The validator maps proposed actions onto these policies
+# to produce GO / OWNER_APPROVAL_REQUIRED / FIX / STOP.
+
+version: 1
+
+max_fix_attempts: 3
+
+policies:
+  - id: default_deny
+    description: 未知のAgent/Skill/actionは既定で拒否する
+    enforcement: STOP
+    note: 明示的に許可されたものだけを通す
+
+  - id: no_external_send_without_owner_approval
+    description: LINE/Gmail/Threads/Google/SNS/DMの送信は人間承認なしに行わない
+    enforcement: OWNER_APPROVAL
+    note: 承認があってもAgentが権限を持たなければSTOP
+
+  - id: no_deploy_without_owner_approval
+    description: Cloud Runデプロイや環境変数変更は人間承認なしに行わない
+    enforcement: OWNER_APPROVAL
+
+  - id: no_scheduler_change_without_owner_approval
+    description: Schedulerの作成/更新/ON/実行/削除は人間承認なしに行わない
+    enforcement: OWNER_APPROVAL
+
+  - id: no_production_write_without_owner_approval
+    description: GCS/Google Sheets/IMAGE_LIBRARYへの書き込みは人間承認なしに行わない
+    enforcement: OWNER_APPROVAL
+
+  - id: no_secret_output
+    description: Secret/token/APIキーを表示・ログ出力・直書きしない
+    enforcement: STOP
+
+  - id: no_credentials_readout
+    description: credentials.jsonの内容を読み出さない/表示しない
+    enforcement: STOP
+
+  - id: no_env_content_output
+    description: .env/.env.localの内容を表示しない
+    enforcement: STOP
+
+  - id: no_main_direct_commit
+    description: mainブランチへ直接commitしない
+    enforcement: STOP
+
+  - id: no_auto_merge_for_high_risk
+    description: 高リスクPRを自動Mergeしない(人間承認必須)
+    enforcement: STOP
+
+  - id: no_existing_file_delete
+    description: 既存ファイルを削除/移動しない(アーカイブで代替)
+    enforcement: STOP
+
+  - id: archive_instead_of_delete
+    description: 不要資産は削除せずarchiveへ退避する
+    enforcement: FIX
+
+  - id: one_pr_one_purpose
+    description: 1つのPRは1つの目的に限定する
+    enforcement: FIX
+
+  - id: report_single_source_of_truth
+    description: 同一目的のレポートは単一ファイルを正本として更新する
+    enforcement: FIX
+
+  - id: no_duplicate_report_creation
+    description: 同一目的の重複レポートを新規作成しない
+    enforcement: FIX
+
+  - id: no_production_write_during_audit
+    description: 監査中は本番書き込みを行わない
+    enforcement: STOP
+
+  - id: no_cross_business_side_effects
+    description: ある事業の操作が他事業へ副作用を及ぼさない
+    enforcement: FIX
+
+  - id: acquisition_frozen
+    description: scripts/acquisitionと商品マッチ先AIは再開しない
+    enforcement: STOP
+
+  - id: tree_beauty_not_reactivated
+    description: Tree Beautyを商品マッチ対象として有効化しない
+    enforcement: STOP
+
+  - id: daily_post_limit_frozen
+    description: daily_post_limitやposting_windowを変更しない
+    enforcement: STOP
+
+# リスクレベル定義
+risk_levels:
+  - level: LOW
+    description: docs/reports/data追記のみ。副作用なし
+    default_decision: GO
+  - level: MEDIUM
+    description: DRY_RUN専用スクリプトやテスト、設定値変更なしの修正
+    default_decision: GO
+  - level: HIGH
+    description: core/scripts/agents/configs/の機能変更、送信/デプロイ/Scheduler
+    default_decision: OWNER_APPROVAL
+  - level: CRITICAL
+    description: Secret/credentials/本番破壊/acquisition再開
+    default_decision: STOP
+
+# 高リスク対象(パス/インフラ/データ)
+high_risk_targets:
+  paths:
+    - core/
+    - scripts/
+    - agents/
+    - config/
+    - configs/
+    - workflows/
+    - apps/
+  infra:
+    - cloud_run
+    - scheduler
+    - oauth
+  channels:
+    - line
+    - gmail
+    - threads
+    - google_post
+  data:
+    - gcs_write
+    - sheets_write
+    - credentials
+    - secret
+    - payment
+    - customer_data
+
+# 高リスク対象(絶対に触らない)
+frozen_targets:
+  - scripts/acquisition/
+  - tree_beauty_activation
+  - daily_post_limit
+  - posting_window

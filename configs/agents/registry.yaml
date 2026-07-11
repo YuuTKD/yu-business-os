@@ -1,0 +1,300 @@
+# YU Business OS 2.0 — Agent Registry (Phase A)
+# Single source of truth for agents. Loaded by core/registry/agent_registry.py.
+#
+# Rules encoded here:
+#   * default deny — external_send / deploy / scheduler / secret_access are
+#     false for every agent in Phase A.
+#   * write_permissions are minimal (empty = read-only).
+#   * active reflects reality: only the governance-loop agents that actually
+#     operate today are active; business agents are defined but not yet wired.
+#   * every entry in `skills` must exist in configs/skills/registry.yaml.
+#
+# This file is data only. It does not connect to any external system.
+
+version: 1
+
+agents:
+  - id: owner-decision-agent
+    name: Owner Decision Agent
+    role: ゆうさんの意思決定を代理せず、承認事項を提示・記録する
+    description: 承認が必要な操作を人間に提示し、決定を記録する窓口
+    applicable_businesses:
+      - all
+    read_permissions:
+      - reports
+      - registries
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions:
+      - all_side_effecting_actions
+    stop_conditions:
+      - secret_output
+      - credentials_read
+    skills: []
+    inputs:
+      - approval_request
+    outputs:
+      - decision_record
+    logs:
+      - data/reports
+    kpis:
+      - approval_turnaround
+    active: true
+
+  - id: claude-code-implementation-agent
+    name: Claude Code Implementation Agent
+    role: 司令塔として設計・実装・PR作成を行い、本番副作用は出さない
+    description: Phase A実装を担当する司令塔ロール
+    applicable_businesses:
+      - all
+    read_permissions:
+      - repo
+      - registries
+    write_permissions:
+      - repo_branch
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions:
+      - high_risk_merge
+      - production_deploy
+    stop_conditions:
+      - main_direct_commit
+      - secret_output
+      - acquisition_resume
+    skills:
+      - pre-deploy-qa
+      - sop-writer
+      - scheduler-readiness-check
+    inputs:
+      - task_spec
+    outputs:
+      - pull_request
+    logs:
+      - REPORT.md
+    kpis:
+      - pr_pass_rate
+    active: true
+
+  - id: codex-review-agent
+    name: Codex Review Agent
+    role: PRをMerge前に監査する。するのではなくさせないのが仕事
+    description: Codex 120点レビューを担当する監査ロール
+    applicable_businesses:
+      - all
+    read_permissions:
+      - repo
+      - pr_diff
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions: []
+    stop_conditions:
+      - secret_output
+      - high_risk_auto_merge
+      - existing_file_delete
+    skills:
+      - pre-deploy-qa
+      - pr-review-gate
+    inputs:
+      - pull_request
+    outputs:
+      - review_decision
+    logs:
+      - data/reports
+    kpis:
+      - defects_caught
+    active: true
+
+  - id: cfo-agent
+    name: CFO Agent
+    role: 財務/キャッシュフローを読み取り、危険を提示する(書き込みなし)
+    description: 財務監視ロール(定義のみ・未稼働)
+    applicable_businesses:
+      - all
+    read_permissions:
+      - finance_sheets_readonly
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions: []
+    stop_conditions:
+      - sheets_write
+      - secret_output
+    skills: []
+    inputs:
+      - finance_snapshot
+    outputs:
+      - cash_alert
+    logs:
+      - data/reports
+    kpis:
+      - cash_runway_days
+    active: false
+
+  - id: sales-agent
+    name: Sales Agent
+    role: 見込み客の評価とDM/見積ドラフト作成(送信は常に人間)
+    description: 営業支援ロール(定義のみ・未稼働)
+    applicable_businesses:
+      - catering
+    read_permissions:
+      - lead_sheets_readonly
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions:
+      - dm_send
+      - email_send
+    stop_conditions:
+      - dm_send
+      - gmail_send
+      - acquisition_resume
+    skills:
+      - lead-scoring
+      - sales-dm-generator
+      - quote-generation
+    inputs:
+      - lead
+    outputs:
+      - dm_draft
+    logs:
+      - data/reports
+    kpis:
+      - reply_rate
+    active: false
+
+  - id: marketing-agent
+    name: Marketing Agent
+    role: 投稿品質チェックと画像在庫点検(実投稿はしない)
+    description: SNS/MEOマーケ支援ロール(定義のみ・未稼働)
+    applicable_businesses:
+      - all
+    read_permissions:
+      - post_sheets_readonly
+      - image_library_readonly
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions:
+      - sns_post
+      - google_post
+    stop_conditions:
+      - threads_post
+      - google_post
+      - sns_post
+    skills:
+      - sns-post-quality-check
+      - image-library-manager
+    inputs:
+      - post_candidate
+    outputs:
+      - quality_report
+    logs:
+      - data/reports
+    kpis:
+      - post_pass_rate
+    active: false
+
+  - id: operations-agent
+    name: Operations Agent
+    role: Scheduler準備判定とデプロイ前QA(ONやデプロイはしない)
+    description: 運用準備ロール(定義のみ・未稼働)
+    applicable_businesses:
+      - all
+    read_permissions:
+      - repo
+      - scheduler_status_readonly
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions:
+      - scheduler_on
+      - cloud_run_deploy
+    stop_conditions:
+      - scheduler_on
+      - cloud_run_deploy
+      - daily_post_limit_change
+    skills:
+      - scheduler-readiness-check
+      - pre-deploy-qa
+      - sop-writer
+    inputs:
+      - readiness_request
+    outputs:
+      - readiness_report
+    logs:
+      - data/reports
+    kpis:
+      - readiness_accuracy
+    active: false
+
+  - id: knowledge-agent
+    name: Knowledge Agent
+    role: ナレッジOSを読み取り、参照を提供する(書き込みなし)
+    description: ナレッジ参照ロール(定義のみ・未稼働)
+    applicable_businesses:
+      - all
+    read_permissions:
+      - knowledge_readonly
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions: []
+    stop_conditions:
+      - secret_output
+    skills: []
+    inputs:
+      - query
+    outputs:
+      - knowledge_reference
+    logs:
+      - data/reports
+    kpis:
+      - reference_hit_rate
+    active: false
+
+  - id: chief-of-staff-agent
+    name: Chief of Staff Agent
+    role: 全体状況を集約しゆうさんへ提示する(意思決定はしない)
+    description: 統合ブリーフィングロール(定義のみ・未稼働)
+    applicable_businesses:
+      - all
+    read_permissions:
+      - reports
+      - registries
+    write_permissions: []
+    external_send_permission: false
+    deploy_permission: false
+    scheduler_permission: false
+    secret_access: false
+    owner_approval_conditions: []
+    stop_conditions:
+      - secret_output
+      - line_send
+    skills: []
+    inputs:
+      - status_snapshot
+    outputs:
+      - owner_briefing
+    logs:
+      - data/reports
+    kpis:
+      - briefing_timeliness
+    active: false
