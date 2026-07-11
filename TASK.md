@@ -56,12 +56,31 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-002（タスクタイトル）
+## TASK-003（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-002 YU Business OS 2.0 Phase A — Registry & Governance 土台
+ステータス: DONE（2026-07-11 / feat/yu-business-os-2-phase-a-registry-governance）
+概要:
+  2.0 設計に基づく最小安全実装。Skill Registry / Agent Registry /
+  Governance Policy / Loader / Validator / 整合性 CLI / Unit Test を追加する。
+  既存機能への本番接続・deploy・Scheduler 変更・外部送信は行わない。
+完了条件:
+  - [x] configs/skills/registry.yaml（10件）
+  - [x] configs/agents/registry.yaml（9件・全 default deny）
+  - [x] configs/governance/policies.yaml（21ポリシー）
+  - [x] core/registry/*（models / skill / agent / yaml_min）
+  - [x] core/governance/validator.py（GO/FIX/STOP/OWNER_APPROVAL）
+  - [x] scripts/registry/validate_registry.py（exit 0/1/2）
+  - [x] Unit Test 52件 全 pass
+  - [x] 設計書5件へ実装状況を追記
+スコープ（新規追加のみ・既存無変更）:
+  - configs/{skills,agents,governance}/ · core/{registry,governance}/
+  - scripts/registry/ · tests/ · docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 
 ## Safe Merge Audit Gate 運用ルール

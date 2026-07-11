@@ -1,0 +1,180 @@
+# YU Business OS 2.0 — Executive Summary
+
+作成日: 2026-07-11  
+作成者: Claude Code（監査フェーズ）  
+用途: ゆうさんへの意思決定報告
+
+---
+
+## 現状評価（2026-07-11 フルスキャン）
+
+### YU HOLDINGS 全体スコア
+
+| 評価軸 | スコア | 根拠 |
+|---|---|---|
+| インフラ安定性 | **A** | 7 Cloud Run + Scheduler 稼働中、毎朝 8:30 自動監視 |
+| コンテンツ自動化 | **B** | Beauty/Catering/Hinabe は稼働、TACHINOMIYA のみ ALMOST_READY |
+| 財務管理 | **B** | 月次目標 ¥9.8M 設定済み、週次・月次レポート自動化 |
+| ガバナンス | **A** | PR フロー・12 点レビュー・Codex 120 点運用中 |
+| セキュリティ | **B** | Secret 管理適切、LINE broadcast リスクが 1 件残存 |
+| 技術的負債 | **C** | 設定二重管理・DRY_RUN 欠如・data/reports 過増殖 |
+
+### 月商ポテンシャル vs 現状
+
+```
+TACHINOMIYA   ¥3,500,000 目標 → Scheduler OFF で機会損失中
+Trees Catering ¥800,000 目標  → 稼働中
+Tree Beauty    ¥500,000 目標  → 稼働中
+パスタパスタ   ¥2,000,000 目標 → 稼働中
+Z1             ¥1,500,000 目標 → 稼働中
+琉球火鍋       ¥1,500,000 目標 → 稼働中
+─────────────────────────────
+合計目標       ¥9,800,000 / 月
+```
+
+**TACHINOMIYA の Scheduler OFF が最大の機会損失**。  
+READY 化により自動投稿が開始され、Google/Threads への露出が増える。
+
+---
+
+## ゆうさんへの意思決定事項（優先順）
+
+### 今すぐ実施（2026-07-11 中）
+
+**1. LINE_TACHINOMIYASTAFF_TOKEN を Cloud Run で空に設定**
+- 手順書: `data/reports/tachinomiya_line_staff_token_disable_procedure.txt`
+- 効果: broadcast 誤通知リスクがゼロになる
+- 所要時間: 約 5 分（GCP Console 操作）
+
+**2. スタッフへ撮影依頼 LINE を送信**
+- 送付文: `data/reports/tachinomiya_staff_photo_request_send_now.txt`
+- 効果: 最短 7/18 に内観写真が揃い、READY 化に近づく
+
+**3. Meta Developers で Threads token 期限確認**
+- Scheduler ON 前の必須確認事項
+- 60 日有効のため、残り 30 日以上を確認
+
+---
+
+### 7/18 以降（写真が揃ってから）
+
+**4. 写真承認 → Claude Code に IMAGE_LIBRARY 登録依頼**
+- 手順書: `data/reports/tachinomiya_image_registration_request_template.txt`
+- Claude Code が自動登録・GCS 化・HTTP200 確認を実施
+
+**5. Scheduler ON の最終判断（Claude Code が READY 報告後）**
+- Claude Code は「READY です」と報告するだけで、実行しない
+- ゆうさんが GCP Console で手動実施
+
+---
+
+### 7/25 以降（Scheduler 安定稼働後）
+
+**6. owner LINE 通知切り替え PR の承認**
+- PR 内容: `LINE_TACHINOMIYASTAFF_TOKEN` → `LINE_OWNER_TOKEN` に 1 行変更
+- 効果: 投稿完了をゆうさんの LINE に通知
+- リスク: HIGH（core/ 変更・Cloud Run 再デプロイ必要）
+
+---
+
+## 2.0 アーキテクチャの概要
+
+2.0 は既存システムを **壊さず** に上位レイヤーを追加する設計。
+
+```
+[ 現行 1.x（変更しない）]
+  core/ agents/ configs/ skills/ scripts/ data/
+    ↓ 読み取り・呼び出しのみ
+[ 2.0 追加レイヤー ]
+  ガバナンス強化（PR フロー改善）
+  単一設定源（business_registry.py 統一）
+  DRY_RUN 標準化（全エンドポイント対応）
+  通知ゲートウェイ（LINE_OWNER_TOKEN 統一）
+  品質ゲート（投稿品質・Scheduler 準備・デプロイ前 QA）
+```
+
+---
+
+## リスク評価
+
+### 現在アクティブなリスク（要対応）
+
+| リスク | 重大度 | 対応状況 |
+|---|---|---|
+| LINE broadcast → スタッフ誤通知（TACHINOMIYA）| HIGH | Q1=YES で空化対応中（ゆうさんタスク） |
+| TACHINOMIYA Scheduler OFF → 機会損失 | HIGH | 画像補充完了後 READY 化で解消 |
+| Threads token 期限未確認 | MEDIUM | ゆうさんが今週確認 |
+
+### 技術的負債（計画的に解消）
+
+| 負債 | 重大度 | 解消フェーズ |
+|---|---|---|
+| 設定二重管理（business_registry.py vs _BUSINESS_CONFIGS）| HIGH | フェーズ 4 |
+| DRY_RUN 未実装（content engine）| HIGH | フェーズ 3 |
+| LINE トークン命名不統一 | MEDIUM | フェーズ 7 |
+| data/reports/ 過増殖（70+ ファイル）| MEDIUM | ゆうさん承認後に整理 |
+
+### 休止中のリスク（変化なし）
+
+| システム | 状態 | 再開条件 |
+|---|---|---|
+| 商品マッチ先 AI エージェント | PAUSED | ゆうさん明示承認のみ |
+| GBP 自動投稿 | 準備済み・未デプロイ | GBP API 承認 |
+| SNS PDCA Phase3（Gemini リライト）| 待機中 | Gemini API キー取得 |
+
+---
+
+## 5 ファイルの位置づけ
+
+| ファイル | 用途 |
+|---|---|
+| `YU_BUSINESS_OS_2_ARCHITECTURE.md` | 全資産インベントリ + 13 レイヤー設計 |
+| `YU_BUSINESS_OS_2_MIGRATION_MAP.md` | 1.x → 2.0 の資産マッピング + リスク評価 |
+| `YU_BUSINESS_OS_2_DATA_CONTRACTS.md` | 全インターフェース仕様（設定・API・LINE）|
+| `YU_BUSINESS_OS_2_IMPLEMENTATION_ROADMAP.md` | フェーズ計画・GO 条件・タイムライン |
+| `YU_BUSINESS_OS_2_EXECUTIVE_SUMMARY.md` | このファイル（意思決定サマリー）|
+
+---
+
+## 次の作業（ゆうさんへのアクション依頼）
+
+```
+今日中:
+  1. GCP Console → Cloud Run → LINE_TACHINOMIYASTAFF_TOKEN を空に
+  2. スタッフに撮影依頼 LINE を送信
+  3. Meta Developers で Threads token 期限を確認
+
+写真が揃ったら:
+  4. ゆうさんが写真を承認し「IMAGE_LIBRARY 登録をお願いします」と Claude Code に依頼
+
+READY 報告後:
+  5. GCP Console で Scheduler ON（最終判断はゆうさん）
+```
+
+**Claude Code がゆうさんの承認なしに実施すること: 設計書の追加・読み取り・分析のみ**
+
+---
+
+*このドキュメントは 2.0 設計フェーズの成果物です。実装・デプロイ・Scheduler 変更・LINE 送信はすべて別途ゆうさんの承認が必要です。*
+
+---
+
+## Phase A 実装完了報告（2026-07-11）
+
+設計だけで終わらせず、2.0 の**土台（Registry & Governance）を実装**した。
+
+**何ができるようになったか**
+- Skill を一元管理（10件）。Unknown skill でも安全に fallback する
+- Agent を一元管理（9件）。全 Agent が原則 default deny（外部送信・デプロイ・Scheduler・Secret アクセスすべて禁止）
+- 危険操作を機械判定（GO / FIX / STOP / OWNER_APPROVAL_REQUIRED）
+- Registry の参照不整合を CLI で自動検査（`RESULT: GO`）
+
+**安全性**: 外部送信ゼロ・deploy ゼロ・Scheduler 変更ゼロ・Secret 非表示・
+既存ファイル無変更。Unit Test **52件 全 pass**。本番未接続。
+
+**ゆうさんが判断すること**
+1. この Phase A PR を Merge するか（高リスク: `core/` 追加を含むため Merge 前停止・人間承認待ち）
+2. Phase B（設定二重管理の解消 = 売却可能性を高める）を開始してよいか
+
+**このPRのリスク**: HIGH（`core/**`, `configs/**`, `scripts/**` への追加を含む）。
+自動 Merge はしない。既存本番へは未接続のため、Merge しても即時の本番影響はない。
