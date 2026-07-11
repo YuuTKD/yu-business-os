@@ -646,3 +646,35 @@ YAML は内蔵パーサ、モデルは dataclass、テストは stdlib `unittest
 | Layer 4 Agent Registry | 台帳 + Loader 実装。全 Agent default deny |
 | Layer 5 Skill Registry | 台帳 + Loader + fallback 実装。実在 SKILL.md のみ正パス |
 | Layer 0 / 2 / 3 / 6-13 | 未接続（設計のまま）|
+
+---
+
+## Phase B1 実装記録（2026-07-11）— Layer 3 Business Config SSOT（Shadow）
+
+Layer 3（Data Contracts）の中核として、事業設定の **Single Source of Truth**
+を shadow mode で追加した。本番読込元は既存のまま（未接続）。
+
+### 配置と責務
+
+```
+configs/businesses/registry.yaml       SSOT データ（6事業・secret-free）
+core/business_config/
+  models.py          スキーマ（dataclass + enum）
+  loader.py          読込・検証・クエリ（fail-closed）
+  legacy_adapter.py  既存設定を AST 静的読取（import/exec なし）
+  comparator.py      SSOT ↔ Legacy 差分 → GO/FIX/STOP
+scripts/business_config/validate_business_configs.py   検証 CLI（exit 0/1/2/3）
+```
+
+### 責務境界（二重管理の解消方針）
+
+| 層 | 責務 |
+|---|---|
+| `configs/businesses/registry.yaml` | 事業設定の正本（shadow・env 名のみ・値なし）|
+| `configs/business_registry.py`（既存）| 本番の実読込元（**変更しない**）|
+| `_BUSINESS_CONFIGS`（既存）| content engine の実読込元（**変更しない**）|
+| Comparator | 正本と Legacy の乖離を検出（自動上書きしない）|
+
+現状は 5 箇所（`business_registry.py` / `_BUSINESS_CONFIGS` /
+`system_health.py` / `executive_team.py` / `entrypoint.py`）に事業設定が分散。
+SSOT はこれらを統合する上位正本だが、Phase B1 では **読取・比較のみ**。

@@ -1,0 +1,298 @@
+# YU Business OS 2.0 — Business Config Registry (Phase B1, SHADOW MODE)
+#
+# Single source of truth (shadow). Loaded by core/business_config/loader.py and
+# compared against legacy config by core/business_config/comparator.py.
+#
+# SHADOW MODE: this file is NOT a production read source. Existing code still
+# reads configs/business_registry.py and _BUSINESS_CONFIGS. This registry is
+# validated + diffed only. No production wiring in Phase B1.
+#
+# SECRET RULES (enforced by the loader):
+#   * no token / api_key / secret / password / credentials VALUES
+#   * environment_variable_names holds NAMES only (e.g. FOO_TOKEN)
+#   * no spreadsheet-id VALUES (use the *_SPREADSHEET_ID env name instead)
+#   * migration_status must be LEGACY_ONLY | SHADOW_DEFINED | VERIFIED
+#     (PRODUCTION_CONNECTED is forbidden)
+
+version: 1
+
+businesses:
+  - id: beauty
+    slug: beauty
+    display_name: Tree Beauty
+    brand_name: Tree Beauty
+    business_type: salon
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 500000
+    services:
+      cloud_run_service: tree-beauty-ai
+      line: true
+      threads: true
+      pos: airegi
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - threads
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - BEAUTY_SPREADSHEET_ID
+      - LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+      - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: content business
+
+  - id: catering
+    slug: catering
+    display_name: Trees Catering
+    brand_name: Trees Catering
+    business_type: catering
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 800000
+    services:
+      cloud_run_service: trees-catering-ai
+      line: true
+      pos: airegi
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: CATERING_LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - CATERING_SPREADSHEET_ID
+      - CATERING_LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+      - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: content business
+
+  - id: pasta_pasta
+    slug: pasta_pasta
+    display_name: パスタパスタ
+    brand_name: パスタパスタ
+    business_type: consulting
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 2000000
+    services:
+      cloud_run_service: pasta-pasta-ai
+      line: true
+      pos: airegi
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: PASTA_LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - PASTA_SPREADSHEET_ID
+      - PASTA_LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: consulting; not a content-engine business
+
+  - id: z1
+    slug: z1
+    display_name: Z1
+    brand_name: Z1
+    business_type: consulting
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 1500000
+    services:
+      cloud_run_service: z1-ai
+      line: true
+      pos: airegi
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: Z1_LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - Z1_SPREADSHEET_ID
+      - Z1_LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: consulting; not a content-engine business
+
+  - id: tachinomiya
+    slug: tachinomiya
+    display_name: TACHINOMIYA
+    brand_name: TACHINOMIYA
+    business_type: restaurant
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 3500000
+    services:
+      cloud_run_service: tachinomiya-ai
+      line: true
+      threads: true
+      pos: airegi
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: TACHINOMIYA_LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - threads
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - TACHINOMIYA_SPREADSHEET_ID
+      - TACHINOMIYA_LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+      - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: Scheduler currently OFF (ALMOST_READY); see tachinomiya readiness report
+
+  - id: ryukyu_hinabe
+    slug: ryukyu_hinabe
+    display_name: 琉球火鍋
+    brand_name: 琉球火鍋
+    business_type: restaurant
+    status: ACTIVE
+    active: true
+    timezone: Asia/Tokyo
+    currency: JPY
+    owner: yuya_tokuda@trees-catering.com
+    monthly_target: 1500000
+    services:
+      cloud_run_service: ryukyu-hinabe-ai
+      line: true
+      threads: true
+      pos: usen
+    notification_policy:
+      mode: UNKNOWN
+      owner_channel_env: LINE_OWNER_TOKEN
+      staff_channel_env: HINABE_LINE_STAFF_TOKEN
+    automation_policy:
+      scheduler_status: UNKNOWN
+      dry_run_default: true
+    posting_policy:
+      platforms:
+        - google
+        - instagram
+        - threads
+        - line
+      daily_post_limit: UNKNOWN
+      posting_window: UNKNOWN
+    approval_policy:
+      high_risk_requires_owner: true
+    protected_fields:
+      - daily_post_limit
+      - posting_window
+      - scheduler_status
+    environment_variable_names:
+      - HINABE_SPREADSHEET_ID
+      - HINABE_LINE_STAFF_TOKEN
+      - LINE_OWNER_TOKEN
+    legacy_sources:
+      - configs/business_registry.py::BUSINESSES
+      - core/multi_business_content_engine.py::_BUSINESS_CONFIGS
+    migration_status: SHADOW_DEFINED
+    metadata:
+      notes: content engine also defines a legacy alias key 'hinabe' (duplicate)
