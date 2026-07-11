@@ -359,3 +359,22 @@ B1 で検出した5件を確定値で解消。CLI は **GO（mismatch 0）** に
 - legacy alias は削除せず**併存**。canonical 優先で解決し、legacy は fallback。
 - 本番 env 変数名は**変更しない**（Cloud Run 側の実 env を壊さない）。名称統一の
   実切替は Phase B2 で 1 事業ずつ・owner 承認・人間 Merge。
+
+---
+
+## Phase B2-1 移行結果（2026-07-11）— TACHINOMIYA Shadow 接続
+
+TACHINOMIYA を対象に、Legacy と SSOT を**実行時比較**する Shadow Adapter を追加。
+本番の設定読込先は**切替えない**（`runtime_source` は常に `LEGACY`）。
+
+| 項目 | 内容 |
+|---|---|
+| Adapter | `core/business_config/shadow_adapter.py`（TACHINOMIYA 限定）|
+| Legacy 読取 | `configs/business_registry.py::BUSINESSES`（AST 静的・import なし）|
+| SSOT 読取 | `configs/businesses/registry.yaml` |
+| **runtime_source** | **常に LEGACY**（SSOT 値は本番へ渡さない・渡せば STOP）|
+| モード | OFF / SHADOW_ONLY(既定) / ENFORCE_COMPARE（引数・CLI・テスト限定）|
+| 本番接続 | **なし**（production main path 未変更・default OFF の hook のみ）|
+
+比較対象は env 変数**名**のみ（token 値は読まない）。mismatch は fail-closed
+（危険=STOP / 非危険=SHADOW は FIX・ENFORCE は STOP）。実切替は Phase B2-2。

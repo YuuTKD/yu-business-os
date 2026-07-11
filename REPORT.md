@@ -2,6 +2,53 @@
 
 ---
 
+## Phase B2-1 完了報告 — TACHINOMIYA SSOT Shadow 接続
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/tachinomiya-ssot-shadow-connection |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/**` `scripts/**` 追加）|
+| **売上直結度** | B（設定移行基盤・監査性向上）|
+
+### 実装したファイル（追加のみ）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/shadow_adapter.py` | ADDED | TACHINOMIYA 限定 Legacy↔SSOT 比較。runtime_source=LEGACY 不変 |
+| `scripts/business_config/check_tachinomiya_shadow.py` | ADDED | Shadow 検証 CLI（exit 0/1/2/3）|
+| `tests/business_config/test_shadow_adapter.py` | ADDED | 20件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | Shadow 接続・runtime_source=LEGACY を役割別に追記 |
+
+### Shadow 接続の要点
+
+- **runtime_source は常に LEGACY**（SSOT 値は本番へ渡さない・渡せば STOP）
+- モード: OFF / SHADOW_ONLY(既定) / ENFORCE_COMPARE（引数・CLI・テスト限定・.env 保存なし）
+- 比較は env 変数**名**のみ（token 値は読まず・出さず）
+- fail-closed: unknown mode / 昼夜不一致 / 他事業混入 / production 誤表示 / import 副作用 → STOP
+- 本番 main path は**未変更**（default OFF の hook のみ・強制接続なし）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 181 tests OK**（+20）
+- Shadow CLI SHADOW_ONLY/ENFORCE_COMPARE → **GO / exit 0 / mismatch 0**
+- Business Config CLI GO / Registry CLI GO / `bash -n` OK / Secret scan CLEAN / 外部通信ゼロ
+
+### 既存構成への影響チェック
+
+- [x] 本番読込先切替：**なし**（runtime_source LEGACY）
+- [x] Legacy 削除 / alias 削除：**なし**
+- [x] Cloud Run / Scheduler / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**
+- [x] Secret 直書き：**なし**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Phase B2-2（実切替）の開始可否
+
+---
+
 ## Phase B1.1 完了報告 — Business Config 不一致の解消
 
 | 項目 | 内容 |
