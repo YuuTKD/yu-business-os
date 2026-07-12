@@ -646,3 +646,28 @@ used_fallback / fallback_reason / config_shape_valid / comparison_decision / war
 
 **禁止**: Secret 値取得・env 値供給・入力 mutation・不明値の推測・silent fallback・
 `SSOT_ONLY`・対象外事業への SSOT 供給。
+
+### 12.6 Readiness Gate 契約（Phase B2-5）
+
+**ReadinessResult**（`core/business_config/readiness.py`）
+```
+business_id / ssot_status / runtime_source / config_supply / legacy_fallback /
+rollback_ready / owner_approval / missing_requirements / warnings / blockers /
+readiness_decision / next_action
+```
+**readiness_decision**
+```
+READY                   技術条件 + owner 承認 + 運用確認が揃う（deploy は別承認）
+ALMOST_READY            非危険な運用不足（画像不足 / token 未確認 / GBP 認証未確認 等）
+OWNER_APPROVAL_REQUIRED 技術的に準備完了・owner 承認待ち
+NOT_READY               SSOT供給不可 / 必須欠損 / 対象外事業
+STOP                    Secret / cross-business 混入 / 危険な有効化 / production write
+```
+**運用確認項目**（code では検証不能・owner 確認まで ALMOST_READY）
+```
+tachinomiya: image_stock_sufficient / threads_token_verified / gbp_auth_verified
+catering / beauty / ryukyu_hinabe: なし
+```
+**CLI exit**（`check_ssot_readiness.py`）: 0=READY/OWNER_APPROVAL のみ / 1=ALMOST_READY・NOT_READY 含む / 2=STOP 含む / 3=INTERNAL_ERROR
+
+**この Gate は監査のみ**: deploy / Scheduler / Cloud Run / 投稿 / 送信 / 書込は一切しない。

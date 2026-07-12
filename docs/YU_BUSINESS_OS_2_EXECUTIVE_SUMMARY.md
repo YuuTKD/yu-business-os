@@ -357,3 +357,28 @@ SSOT 供給の対象に **琉球火鍋（ryukyu_hinabe）のみ**を追加した
 **ゆうさんが判断すること**
 1. この Batch 2（火鍋）PR を Merge するか（HIGH → 人間承認必須・既定オフで即時影響なし）
 2. 次候補（パスタ・Z1）へ進むか
+
+---
+
+## Phase B2-5 実装完了報告（2026-07-12）
+
+SSOT 供給対象の **4事業**を本番接続前に判定する「準備完了ゲート」を追加した。
+**判定するだけ**で、deploy・投稿・LINE・Scheduler 変更は一切しない。
+
+**現状の判定（承認・運用確認まだ）**
+- **TACHINOMIYA → ALMOST_READY**（画像不足・Threads token 未確認・Google 認証未確認）
+  ※「画像不足なのに READY」にはしない安全設計
+- Catering / Beauty / 琉球火鍋 → **OWNER_APPROVAL_REQUIRED**（技術的には準備完了・承認待ち）
+- パスタ・Z1 → NOT_READY（対象外・不変）
+
+**判定の意味**
+- READY = 本番接続の技術条件+承認+運用確認が揃った（deploy はさらに別承認）
+- ALMOST_READY = 危険ではないが不足あり（例: 火鍋店の写真不足）
+- STOP = Secret・事業混入・危険な有効化など（絶対に通さない）
+
+**安全性**: 監査のみ・外部通信ゼロ・Secret 非表示・既定 LEGACY_ONLY 不変・
+rollback 可。Unit Test **300件 全 pass**。
+
+**ゆうさんが判断すること**
+1. この Readiness Gate PR を Merge するか（HIGH → 人間承認必須・監査のみで即時影響なし）
+2. TACHINOMIYA の運用確認（画像補充・token・GBP）を進め READY 化するか

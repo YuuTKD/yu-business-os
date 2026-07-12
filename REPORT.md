@@ -2,6 +2,69 @@
 
 ---
 
+## Phase B2-5 完了報告 — SSOT Production Readiness Gate（4事業）
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-ssot-readiness-gate |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-12 |
+| **リスク分類** | High（`core/business_config/**` `scripts/**` 追加）|
+| **売上直結度** | B（本番接続前監査・移行安全性）|
+| **対象4事業** | tachinomiya / catering / beauty / ryukyu_hinabe |
+| **対象外・不変** | pasta_pasta / z1 |
+
+### 変更したファイル（監査・Gate 実装のみ）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/readiness.py` | ADDED | 本番接続前 Readiness 判定（5段階 + INTERNAL_ERROR）|
+| `core/business_config/config_supply.py` | MODIFIED | cross-business 混入検知を detail 参照へ拡張（安全強化）|
+| `scripts/business_config/check_ssot_readiness.py` | ADDED | Readiness CLI（exit 0/1/2/3）|
+| `tests/business_config/test_ssot_readiness.py` | ADDED | 25件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | Readiness 契約/判定/次工程を役割別に追記 |
+
+### Readiness 判定（owner 未承認・運用未確認時）
+
+| 事業 | 判定 |
+|---|---|
+| **tachinomiya** | **ALMOST_READY**（画像不足 / Threads token 未確認 / GBP 認証未確認）|
+| catering | OWNER_APPROVAL_REQUIRED |
+| beauty | OWNER_APPROVAL_REQUIRED（active 状態維持）|
+| ryukyu_hinabe | OWNER_APPROVAL_REQUIRED（GBP 除外・alias 維持）|
+| pasta_pasta / z1 | NOT_READY（対象外・不変）|
+
+### 事業別監査（コードで検証）
+
+- TACHINOMIYA: 目標 5.5M=2.5M+3.0M 一致・owner/staff env 分離・staff 通知 gated・Scheduler OFF は要確認（warning）。**画像不足のため READY にしない**
+- Catering: 供給 GO・inactive service を有効化しない（warning）
+- Beauty: active 状態維持・供給 GO
+- 火鍋: canonical `ryukyu_hinabe`・`hinabe` alias 維持・GBP 自動化除外（warning）
+
+### STOP 条件（回避不可）
+
+Secret-like 値 / cross-business 混入 / production write / SSOT_ONLY / 危険な有効化 → **STOP**
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 300 tests OK**（+25）
+- Readiness CLI（batch）→ **NEEDS_WORK / rc=1**（tachinomiya ALMOST_READY）
+- Config Supply CLI GO / Business Config CLI GO / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ / bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] 監査・Gate 実装のみ（**production write なし**）
+- [x] pasta_pasta / z1：**未変更**
+- [x] deploy / Scheduler / Cloud Run env / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] runtime 既定（LEGACY_ONLY）/ Legacy fallback：**不変**
+- [x] `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ TACHINOMIYA 運用確認による READY 化
+
+---
+
 ## Phase B2-4 Batch 2 完了報告 — 琉球火鍋の SSOT 由来 config 供給
 
 | 項目 | 内容 |
