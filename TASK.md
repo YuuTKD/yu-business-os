@@ -56,12 +56,28 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-008（タスクタイトル）
+## TASK-009（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-008 YU Business OS 2.0 Phase B2-3 — Runtime main path SSOT 接続
+ステータス: DONE（2026-07-11 / feat/runtime-main-path-ssot-connection）
+概要:
+  entrypoint / Runtime Loader / Business Loader に SSOT Resolver を feature
+  flag（既定 LEGACY_ONLY）越しに安全接続。既定は挙動不変・fail-closed。
+完了条件:
+  - [x] core/business_config/runtime_loader.py（LEGACY_ONLY/AUTO/OWNER_APPROVED）
+  - [x] core/business_config/business_loader.py
+  - [x] core/entrypoint.py に apply_runtime_config 追加（CONFIG 不変）
+  - [x] scripts/business_config/check_runtime_main_path.py（exit 0/10/20/30/40/50）
+  - [x] Unit Test 19件追加 / 合計 225件 全 pass
+  - [x] rollback=YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY
+スコープ（追加中心・既存削除なし・既定挙動不変）:
+  - core/business_config/ · scripts/business_config/ · core/entrypoint.py（追加のみ）
+  - tests/business_config/ · docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-007 YU Business OS 2.0 Phase B2-2 — TACHINOMIYA SSOT primary + Legacy fallback
 ステータス: DONE（2026-07-11 / feat/tachinomiya-ssot-primary-with-legacy-fallback）

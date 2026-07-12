@@ -39,6 +39,15 @@ except ValueError:
     print(f"[WARN] Unknown BUSINESS_NAME={BUSINESS_NAME}, falling back to 'beauty'")
     CONFIG = BUSINESSES["beauty"]
 
+# Phase B2-3: connect the main path to the SSOT runtime resolver behind a
+# feature flag. Default (YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY) is a pass-through
+# that returns CONFIG unchanged; it never raises (fail-closed to legacy).
+try:
+    from core.business_config.runtime_loader import apply_runtime_config
+    CONFIG = apply_runtime_config(BUSINESS_NAME, CONFIG)
+except Exception as _rt_exc:  # never break startup
+    print(f"[runtime_config] disabled (fail-closed): {type(_rt_exc).__name__}")
+
 SPREADSHEET_ID = (
     os.getenv("SPREADSHEET_ID")
     or os.getenv(CONFIG.get("spreadsheet_id_env", ""), "")

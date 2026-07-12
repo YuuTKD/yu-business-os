@@ -2,6 +2,61 @@
 
 ---
 
+## Phase B2-3 完了報告 — Runtime main path を SSOT Resolver へ安全接続
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/runtime-main-path-ssot-connection |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/entrypoint.py` 追加変更 + `core/**` `scripts/**` 追加）|
+| **売上直結度** | B（設定移行・監査性向上）|
+
+### 変更したファイル
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/runtime_loader.py` | ADDED | feature flag 判定・source 解決・fail-closed |
+| `core/business_config/business_loader.py` | ADDED | legacy 取得＋接続の再利用層 |
+| `scripts/business_config/check_runtime_main_path.py` | ADDED | Runtime main-path CLI（exit 0/10/20/30/40/50）|
+| `core/entrypoint.py` | MODIFIED | `apply_runtime_config` を追加呼出（既存ロジック削除なし・CONFIG 不変）|
+| `tests/business_config/test_runtime_loader.py` | ADDED | 19件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | 接続・flag・rollback を役割別に追記 |
+
+### Feature Flag / Runtime
+
+- `YU_CONFIG_RUNTIME_MODE`: **LEGACY_ONLY(既定)** / AUTO / OWNER_APPROVED
+- 既定 LEGACY_ONLY → Resolver を呼ばず CONFIG をそのまま返す（**挙動不変**）
+- OWNER_APPROVED（または AUTO+`YU_OWNER_APPROVED=true`）→ Resolver 判定 → SSOT（mismatch 0 時）/ 失敗時 Legacy fallback
+- 対象は TACHINOMIYA のみ・他事業は常に LEGACY
+
+### 安全設計
+
+- `apply_runtime_config` は CONFIG を**変更せず同一オブジェクトを返す**（形・値不変・identity 保持）
+- 例外時は fail-closed（起動を止めず Legacy 継続）
+- env 変数**名**のみ・token 値は読まず・出さず・外部通信ゼロ・import 副作用なし
+- **rollback**: `YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（1 設定）/ code revert 不要
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 225 tests OK**（+19）
+- Runtime main-path CLI: LEGACY rc=0 / OWNER_APPROVED rc=0（source=SSOT）
+- Runtime resolver CLI GO / Shadow CLI GO / Business Config CLI GO / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ / bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] 既存コード削除：**なし**（entrypoint は追加のみ）
+- [x] 既存データ変更 / Legacy 削除：**なし**
+- [x] deploy / Cloud Run env / Scheduler / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**
+- [x] 既定挙動：**不変**（LEGACY_ONLY）
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Phase B2-4 の開始可否
+
+---
+
 ## Phase B2-2 完了報告 — TACHINOMIYA SSOT primary + Legacy fallback
 
 | 項目 | 内容 |
