@@ -89,7 +89,8 @@ class BuilderTest(unittest.TestCase):
 
 class SupplyTest(unittest.TestCase):
     def test_07_unsupported_business_legacy(self):
-        for bid in ("ryukyu_hinabe", "pasta_pasta", "z1"):
+        # ryukyu_hinabe joined supply scope in Batch 2; pasta_pasta / z1 stay out.
+        for bid in ("pasta_pasta", "z1"):
             r = supply(bid, mode="OWNER_APPROVED", owner_approved=True)
             self.assertEqual(r["runtime_source"], "LEGACY", bid)
 
@@ -178,9 +179,10 @@ class BatchTest(unittest.TestCase):
         self.assertEqual(ids, set(BATCH))
 
     def test_33_out_of_scope_legacy(self):
-        bt = supply_batch(["ryukyu_hinabe", "pasta_pasta", "z1"],
+        # pasta_pasta / z1 remain out of supply scope (Batch 2 added only 火鍋).
+        bt = supply_batch(["pasta_pasta", "z1"],
                           mode="OWNER_APPROVED", owner_approved=True)
-        for bid in ("ryukyu_hinabe", "pasta_pasta", "z1"):
+        for bid in ("pasta_pasta", "z1"):
             self.assertEqual(bt["results"][bid]["runtime_source"], "LEGACY")
 
 

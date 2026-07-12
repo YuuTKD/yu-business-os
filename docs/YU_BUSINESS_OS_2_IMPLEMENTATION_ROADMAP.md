@@ -573,3 +573,25 @@ validator がすべて GO で一致（mismatch 0・shape 互換）。
 ### Batch 2 対象候補（今回は未着手）
 
 `ryukyu_hinabe`（火鍋）→ 続いて `pasta_pasta` / `z1`（別 PR・別承認・1 事業ずつ）。
+
+---
+
+## Phase B2-4 Batch 2（火鍋のみ SSOT 供給）— 実装完了 2026-07-12
+
+`ryukyu_hinabe` を SSOT 供給対象に追加（`hinabe` alias 対応）。`pasta_pasta` /
+`z1` は**対象外・不変**。既定 LEGACY_ONLY・本番未 deploy。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| supply scope に `ryukyu_hinabe` 追加（`config_builder` / `config_supply`）| ✅ |
+| `hinabe` alias 解決（canonical と同一 config）| ✅ |
+| POS・売上連携・別オーナー email・approval policy 保持 / GBP 等 非有効化 | ✅ |
+| `pasta_pasta` / `z1` 不変（コード・設定・テスト・docs 変更なし）| ✅ |
+| Unit Test | ✅ **20件追加 / 合計 275件 全 pass** |
+| Supply CLI（ryukyu_hinabe OWNER_APPROVED）| ✅ **SSOT / GO** |
+
+### 次候補（今回は未着手）
+
+`pasta_pasta` → `z1`（別 PR・別承認・1 事業ずつ）。

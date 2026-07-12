@@ -25,8 +25,10 @@ from typing import Any, Dict, List, Optional
 
 from .models import BusinessConfig, Status
 
-# Batch-1 businesses (SSOT ids).
+# Businesses whose config the SSOT may supply (SSOT ids).
 BATCH1_BUSINESSES = ("tachinomiya", "catering", "beauty")
+BATCH2_BUSINESSES = ("ryukyu_hinabe",)          # Batch 2: 火鍋 only (pasta_pasta / z1 out of scope)
+SUPPLIED_BUSINESSES = BATCH1_BUSINESSES + BATCH2_BUSINESSES
 
 
 @dataclass
@@ -49,10 +51,10 @@ def build_legacy_compatible_config(business_id: str, ssot: Optional[BusinessConf
 
     Never mutates ``legacy``; returns a new dict on GO.
     """
-    if business_id not in BATCH1_BUSINESSES:
+    if business_id not in SUPPLIED_BUSINESSES:
         return BuildResult(business_id, "STOP", "FALLBACK_LEGACY",
-                           reason="business_out_of_batch1",
-                           issues=[f"{business_id} is not a Batch-1 business"])
+                           reason="business_out_of_scope",
+                           issues=[f"{business_id} is not a supplied business"])
     if ssot is None:
         return BuildResult(business_id, "FIX", "FALLBACK_LEGACY",
                            reason="ssot_missing", issues=["SSOT config missing"])
@@ -142,3 +144,7 @@ def build_trees_catering_config(repo_root=None) -> BuildResult:
 
 def build_tree_beauty_config(repo_root=None) -> BuildResult:
     return _build_for("beauty", repo_root)
+
+
+def build_ryukyu_hinabe_config(repo_root=None) -> BuildResult:
+    return _build_for("ryukyu_hinabe", repo_root)
