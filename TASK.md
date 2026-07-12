@@ -56,12 +56,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-011（タスクタイトル）
+## TASK-012（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-011 YU Business OS 2.0 Phase B2-5 — SSOT Production Readiness Gate
+ステータス: DONE（2026-07-12 / feat/yu-business-os-2-ssot-readiness-gate）
+概要:
+  SSOT 供給対象4事業を本番接続前に判定する Readiness Gate を追加。監査のみ・
+  deploy/Scheduler/投稿/送信なし。READY/ALMOST_READY/OWNER_APPROVAL/NOT_READY/STOP。
+完了条件:
+  - [x] core/business_config/readiness.py（5段階判定・fail-closed）
+  - [x] scripts/business_config/check_ssot_readiness.py（exit 0/1/2/3）
+  - [x] TACHINOMIYA を ALMOST_READY（画像不足等）= READY にしない
+  - [x] pasta_pasta / z1 不変
+  - [x] Unit Test 25件追加 / 合計 300件 全 pass
+スコープ（監査・Gate のみ・追加中心）:
+  - core/business_config/{readiness,config_supply}.py · scripts/business_config/
+  - tests/business_config/ · docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-010 YU Business OS 2.0 Phase B2-4 Batch 2 — 琉球火鍋 SSOT 供給
 ステータス: DONE（2026-07-12 / feat/yu-business-os-2-ssot-config-supply-ryukyu-hinabe）

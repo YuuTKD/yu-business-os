@@ -130,7 +130,13 @@ def supply(business_id: str, mode: str = "LEGACY_ONLY", owner_approved: bool = F
         from .comparator import compare
         from .legacy_adapter import LegacyAdapter
         cmp = compare(registry, LegacyAdapter(repo_root=root))
-        per_biz = [d for d in cmp.differences if d.business in (business_id, ssot.slug)]
+        # Include diffs flagged on this business, or that reference it in their
+        # detail (e.g. cross-business contamination is attributed to the other
+        # business but names this one).
+        keys = (business_id, ssot.slug)
+        per_biz = [d for d in cmp.differences
+                   if d.business in keys
+                   or any(k in (d.detail or "") for k in keys)]
         dangerous = any(d.severity == "STOP" for d in per_biz)
         r["comparison_decision"] = "STOP" if dangerous else ("FIX" if per_biz else "GO")
 

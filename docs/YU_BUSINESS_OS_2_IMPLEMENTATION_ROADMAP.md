@@ -595,3 +595,33 @@ validator がすべて GO で一致（mismatch 0・shape 互換）。
 ### 次候補（今回は未着手）
 
 `pasta_pasta` → `z1`（別 PR・別承認・1 事業ずつ）。
+
+---
+
+## Phase B2-5（SSOT Production Readiness Gate・4事業）— 実装完了 2026-07-12
+
+SSOT 供給対象の **4事業**（tachinomiya / catering / beauty / ryukyu_hinabe）を
+本番接続前に判定する Readiness Gate を追加。**監査のみ・deploy なし**。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| `core/business_config/readiness.py`（READY/ALMOST_READY/OWNER_APPROVAL/NOT_READY/STOP）| ✅ |
+| `scripts/business_config/check_ssot_readiness.py`（exit 0/1/2/3）| ✅ |
+| Unit Test | ✅ **25件追加 / 合計 300件 全 pass** |
+
+### 現在の判定（owner 未承認・運用未確認時）
+
+| 事業 | 判定 | 理由 |
+|---|---|---|
+| tachinomiya | **ALMOST_READY** | 画像不足 / Threads token 未確認 / GBP 認証未確認 |
+| catering | OWNER_APPROVAL_REQUIRED | 技術的に準備完了・承認待ち |
+| beauty | OWNER_APPROVAL_REQUIRED | 同上（active 状態維持）|
+| ryukyu_hinabe | OWNER_APPROVAL_REQUIRED | 同上（GBP 除外・alias 維持）|
+| pasta_pasta / z1 | NOT_READY | SSOT 供給スコープ外（不変）|
+
+### 次工程
+
+TACHINOMIYA の運用確認（画像補充・token・GBP）→ owner 承認で READY。以降 deploy は
+別承認・別 PR。pasta_pasta / z1 の SSOT 供給は別途。
