@@ -707,3 +707,32 @@ scripts/business_config/check_ssot_config_supply.py  供給検証 CLI
 - SSOT フィールド欠損/型不一致 → FIX（Legacy fallback）/ 事業ID不一致 → STOP
 
 対象外3事業（`ryukyu_hinabe` / `pasta_pasta` / `z1`）の Runtime 挙動は不変。
+
+---
+
+## Phase B2-6 実装記録（2026-07-12）— Readiness 承認 + Activation Dry Run
+
+owner の readiness 承認を監査可能に記録し、4事業の本番接続を **Dry Run** で判定
+（実 deploy はしない）。
+
+### 追加コンポーネント
+
+```
+configs/governance/readiness_approvals.yaml   Owner 承認台帳（READINESS scope のみ）
+core/business_config/approvals.py             台帳ローダ（deploy/scheduler/send は false 強制）
+core/business_config/tachinomiya_audit.py     token/GBP/画像の read-only 監査（値は読まない）
+core/business_config/readiness.py             台帳連携 + PHOTO_PENDING_READY 追加
+core/business_config/activation.py            本番接続 Dry Run + Plan + Rollback 検証
+scripts/business_config/dry_run_ssot_activation.py  Dry Run CLI（exit 0-5）
+```
+
+### 承認スコープの分離（越権防止）
+
+readiness 承認は **deploy / Scheduler / external-send 承認とは別物**。台帳は
+各承認を独立フラグで持ち、B2-6 では deploy/scheduler/send は全て false。
+readiness 承認を deploy 承認へ拡大解釈しない。
+
+### Activation は Dry Run のみ
+
+deploy コマンドは**候補文字列として生成**するだけで**実行しない**。deploy 承認が
+無いため、READY 事業でも `DEPLOY_APPROVAL_REQUIRED` で停止。本番操作ゼロ。

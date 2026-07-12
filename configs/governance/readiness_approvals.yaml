@@ -1,0 +1,77 @@
+# YU Business OS 2.0 — Readiness Approval Ledger (Phase B2-6)
+#
+# Auditable record of OWNER readiness approvals. Loaded by
+# core/business_config/approvals.py.
+#
+# SCOPE: SSOT_PRODUCTION_READINESS only. This is NOT a deploy approval, NOT a
+# Scheduler approval, NOT an external-send approval. Each record explicitly sets
+# deploy_approval / scheduler_approval / external_send_approval to false.
+#
+# RULES:
+#   * no secret / token / credential values, no personal data
+#   * approval_scope must be explicit (never a blanket approval)
+#   * deploy_approval must be false in Phase B2-6 (enforced by the loader)
+
+version: 1
+
+approvals:
+  - business_id: catering
+    approval_type: READINESS
+    approved: true
+    approved_by: OWNER
+    approval_scope: SSOT_PRODUCTION_READINESS
+    deploy_approval: false
+    scheduler_approval: false
+    external_send_approval: false
+    approved_at: "2026-07-12"
+    source: owner_directive_phase_b2_6
+    expires_at: UNKNOWN
+    prohibited_actions:
+      - deploy
+      - cloud_run_env_change
+      - scheduler_change
+      - scheduler_on
+      - external_send
+      - ssot_only
+    notes: readiness only; deploy is a separate approval
+
+  - business_id: beauty
+    approval_type: READINESS
+    approved: true
+    approved_by: OWNER
+    approval_scope: SSOT_PRODUCTION_READINESS
+    deploy_approval: false
+    scheduler_approval: false
+    external_send_approval: false
+    approved_at: "2026-07-12"
+    source: owner_directive_phase_b2_6
+    expires_at: UNKNOWN
+    prohibited_actions:
+      - deploy
+      - cloud_run_env_change
+      - scheduler_change
+      - scheduler_on
+      - external_send
+      - ssot_only
+      - tree_beauty_reactivation
+    notes: readiness のみ・Tree Beauty の有効化は引き続き禁止
+
+  - business_id: ryukyu_hinabe
+    approval_type: READINESS
+    approved: true
+    approved_by: OWNER
+    approval_scope: SSOT_PRODUCTION_READINESS
+    deploy_approval: false
+    scheduler_approval: false
+    external_send_approval: false
+    approved_at: "2026-07-12"
+    source: owner_directive_phase_b2_6
+    expires_at: UNKNOWN
+    prohibited_actions:
+      - deploy
+      - cloud_run_env_change
+      - scheduler_change
+      - scheduler_on
+      - external_send
+      - ssot_only
+    notes: readiness only; canonical id ryukyu_hinabe, hinabe alias kept

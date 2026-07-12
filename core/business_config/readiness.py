@@ -61,13 +61,23 @@ def _result(business_id: str) -> Dict[str, Any]:
     }
 
 
-def assess_business(business_id: str, owner_approved: bool = False,
+def assess_business(business_id: str, owner_approved: Optional[bool] = None,
                     operational_confirmed: Optional[Set[str]] = None,
                     production_write: bool = False,
                     repo_root: Optional[str] = None, registry=None) -> Dict[str, Any]:
-    """Assess one business. Never raises (INTERNAL_ERROR on failure)."""
+    """Assess one business. Never raises (INTERNAL_ERROR on failure).
+
+    ``owner_approved`` None → read the readiness approval ledger; a bool
+    overrides it (used by tests / CLI flag).
+    """
     root = os.path.abspath(repo_root or _repo_root())
     confirmed = set(operational_confirmed or set())
+    if owner_approved is None:
+        try:
+            from .approvals import ApprovalLedger
+            owner_approved = ApprovalLedger(repo_root=root).load().is_readiness_approved(business_id)
+        except Exception:
+            owner_approved = False
     r = _result(business_id)
     r["owner_approval"] = "APPROVED" if owner_approved else "NOT_APPROVED"
 
@@ -143,10 +153,21 @@ def assess_business(business_id: str, owner_approved: bool = False,
                        if req not in confirmed]
         r["missing_requirements"].extend(missing_ops)
 
+        # TACHINOMIYA: attach the read-only technical audit (token/GBP/image).
+        if business_id == "tachinomiya":
+            from .tachinomiya_audit import audit_tachinomiya
+            audit = audit_tachinomiya(root)
+            r["warnings"].extend(audit["blockers"])
+
         # Decision ladder.
         if missing_ops:
-            r["readiness_decision"] = "ALMOST_READY"
-            r["next_action"] = "運用確認が未了（" + ", ".join(missing_ops) + "）→ 確認後 READY"
+            if set(missing_ops) == {"image_stock_sufficient"}:
+                # token + GBP confirmed, only photos remain.
+                r["readiness_decision"] = "PHOTO_PENDING_READY"
+                r["next_action"] = "写真補充のみ残り。撮影・登録後に READY"
+            else:
+                r["readiness_decision"] = "ALMOST_READY"
+                r["next_action"] = "運用確認が未了（" + ", ".join(missing_ops) + "）→ 確認後 READY"
         elif not owner_approved:
             r["readiness_decision"] = "OWNER_APPROVAL_REQUIRED"
             r["next_action"] = "技術的に準備完了。owner 承認で次工程へ"

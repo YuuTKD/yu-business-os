@@ -2,6 +2,78 @@
 
 ---
 
+## Phase B2-6 完了報告 — Readiness 承認 + Activation Dry Run（4事業）
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-readiness-activation-batch |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-12 |
+| **リスク分類** | High（`core/business_config/**` `configs/governance/**` `scripts/**` 追加）|
+| **売上直結度** | B（本番移行・監査性）|
+| **承認3事業** | catering / beauty / ryukyu_hinabe（READINESS scope のみ）|
+| **監査対象** | tachinomiya |
+| **対象外・不変** | pasta_pasta / z1 |
+
+### 変更したファイル
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `configs/governance/readiness_approvals.yaml` | ADDED | Owner 承認台帳（READINESS scope・deploy/scheduler/send=false）|
+| `core/business_config/approvals.py` | ADDED | 台帳ローダ（deploy/scheduler/send 承認を false 強制）|
+| `core/business_config/tachinomiya_audit.py` | ADDED | token/GBP/画像の read-only 監査（値は読まない）|
+| `core/business_config/readiness.py` | MODIFIED | 台帳連携 + PHOTO_PENDING_READY + audit 統合 |
+| `core/business_config/activation.py` | ADDED | 本番接続 Dry Run + Plan + Rollback 検証 |
+| `scripts/business_config/dry_run_ssot_activation.py` | ADDED | Dry Run CLI（exit 0-5）|
+| `scripts/business_config/check_ssot_readiness.py` | MODIFIED | 台帳駆動（flag なし→台帳判定）|
+| `tests/business_config/test_readiness_activation.py` | ADDED | 39件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（4件）| MODIFIED | 承認 scope/監査/Dry Run/rollback を役割別に追記 |
+
+### Owner 承認（監査可能・deploy と分離）
+
+- catering / beauty / ryukyu_hinabe: `approval_type=READINESS`, `approval_scope=SSOT_PRODUCTION_READINESS`, **deploy_approval=false**
+- readiness 承認を deploy 承認へ拡大解釈しない（台帳が deploy/scheduler/send を false 強制）
+
+### 判定結果
+
+| 事業 | Readiness | Activation Dry Run |
+|---|---|---|
+| catering / beauty / ryukyu_hinabe | **READY** | DEPLOY_APPROVAL_REQUIRED |
+| tachinomiya | **ALMOST_READY** | READINESS_BLOCKED |
+| pasta_pasta / z1 | NOT_READY（対象外）| — |
+
+### TACHINOMIYA 監査（値は一切読まない）
+
+- Threads token: env NAME 宣言確認 → **MANUAL_CHECK_REQUIRED**（期限は Meta で要確認）
+- GBP: auth ファイル存在確認 → **MANUAL_CHECK_REQUIRED**（有効性は GCP で要確認）
+- 画像: **PHOTO_PENDING**（interior 1→5 / drink 3→8 / exterior 4→10・追加15枚）
+- Scheduler OFF 維持・実投稿ゼロ / token+GBP 確認済みなら **PHOTO_PENDING_READY**
+
+### Activation は Dry Run のみ
+
+deploy コマンドは**候補文字列**として生成するだけで**実行しない**。deploy 未承認のため READY 事業も **DEPLOY_APPROVAL_REQUIRED** で停止。**本番操作ゼロ**。Rollback は 4事業とも `YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（code revert 不要・alias 維持）で検証済み。
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 339 tests OK**（+39）
+- Readiness CLI（台帳駆動）→ 3 READY / tachinomiya ALMOST_READY / rc=1
+- Activation Dry Run CLI → batch READINESS_BLOCKED / rc=1・catering DEPLOY_APPROVAL_REQUIRED / rc=3
+- Config Supply / Business Config / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ / bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] 3事業 readiness 承認のみ・TACHINOMIYA は監査のみ
+- [x] deploy / Scheduler / Cloud Run env / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] SSOT_ONLY / Legacy 削除 / 本番 Activation：**なし**
+- [x] pasta_pasta / z1 / `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+- [x] Secret / credentials / `.env` 内容：**非表示・非読取**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ deploy 承認（別 PR）/ TACHINOMIYA 運用確認
+
+---
+
 ## Phase B2-5 完了報告 — SSOT Production Readiness Gate（4事業）
 
 | 項目 | 内容 |
