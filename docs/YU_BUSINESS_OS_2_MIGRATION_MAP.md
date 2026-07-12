@@ -460,3 +460,21 @@ code revert 不要・env 削除でも Legacy 復帰。
 ### Batch 2 候補
 
 `ryukyu_hinabe`（火鍋）→ その後 `pasta_pasta` / `z1`（別 PR・別承認）。
+
+---
+
+## Phase B2-4 Batch 2 移行結果（2026-07-12）— 火鍋のみ SSOT 供給
+
+Batch 2 = **`ryukyu_hinabe`（琉球火鍋）のみ**。`pasta_pasta` / `z1` は**対象外・不変**。
+
+| 項目 | 内容 |
+|---|---|
+| 追加供給対象 | `ryukyu_hinabe`（canonical id）|
+| legacy alias | `hinabe`（alias としてのみ維持・削除しない）|
+| alias 解決 | `supply('hinabe')` は canonical `ryukyu_hinabe` に解決され同一 config |
+| 供給挙動 | 既定 LEGACY_ONLY / owner 承認時のみ SSOT / 失敗時 Legacy fallback（理由付き）|
+| 保持 | POS(usen・tabelog)・売上連携・別オーナー email・approval policy は legacy 通し |
+| 有効化しない | GBP 自動化 / 投稿 / LINE / Gmail / Scheduler / Cloud Run |
+| 対象外 | `pasta_pasta` / `z1` は常に LEGACY（コード・設定・テスト・docs 変更なし）|
+
+rollback: `YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（既定）に戻すだけ。次候補: `pasta_pasta` / `z1`。

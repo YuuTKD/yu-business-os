@@ -14,9 +14,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
-from .config_builder import BATCH1_BUSINESSES, build_legacy_compatible_config
+from .config_builder import SUPPLIED_BUSINESSES, build_legacy_compatible_config
 
-SUPPLY_SCOPE = set(BATCH1_BUSINESSES)
+SUPPLY_SCOPE = set(SUPPLIED_BUSINESSES)
 _OK_MIGRATION = {"SHADOW_DEFINED", "VERIFIED"}
 _SSOT_MODES = {"SSOT_PRIMARY_WITH_LEGACY_FALLBACK", "AUTO", "OWNER_APPROVED"}
 
@@ -51,11 +51,34 @@ def _legacy_config(business_id):
         return None
 
 
+def _resolve_canonical(business_id, root):
+    """Resolve a legacy slug alias (e.g. 'hinabe') to its canonical id.
+
+    Returns the canonical id, or the input unchanged if it is already canonical
+    or unknown. Read-only; never raises.
+    """
+    try:
+        from .loader import BusinessConfigRegistry
+        canonical = BusinessConfigRegistry(repo_root=root).load().resolve_slug(business_id)
+        return canonical or business_id
+    except Exception:
+        return business_id
+
+
 def supply(business_id: str, mode: str = "LEGACY_ONLY", owner_approved: bool = False,
            repo_root: Optional[str] = None, registry=None) -> Dict[str, Any]:
     root = os.path.abspath(repo_root or _repo_root())
     mode = str(mode).strip().upper()
+
+    # Resolve a legacy slug alias (e.g. 'hinabe' -> 'ryukyu_hinabe') so alias and
+    # canonical requests yield the same config.
     legacy = _legacy_config(business_id)
+    if legacy is None:
+        canonical = _resolve_canonical(business_id, root)
+        if canonical != business_id:
+            business_id = canonical
+            legacy = _legacy_config(business_id)
+
     r = _result(business_id, mode, owner_approved=owner_approved, config=legacy)
 
     try:

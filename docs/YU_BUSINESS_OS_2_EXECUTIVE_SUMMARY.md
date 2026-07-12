@@ -338,3 +338,22 @@ Unit Test **225件 全 pass**。
 **ゆうさんが判断すること**
 1. この Phase B2-4 Batch 1 PR を Merge するか（HIGH → 人間承認必須。既定オフのため即時影響なし）
 2. Batch 2（火鍋 → パスタ・Z1）へ進むか
+
+---
+
+## Phase B2-4 Batch 2 実装完了報告（2026-07-12）
+
+SSOT 供給の対象に **琉球火鍋（ryukyu_hinabe）のみ**を追加した。パスタ・Z1 は**対象外・
+一切変更なし**。旧名 `hinabe` は別名として維持され、別名で呼んでも同じ設定になる。
+
+**要点**
+- owner 承認時のみ火鍋を SSOT 由来 config で供給（形は従来同一・値は SSOT 発）
+- POS/売上連携・別オーナーのメール・承認ポリシーは従来どおり保持
+- GBP 自動化・投稿・LINE・Gmail・Scheduler・Cloud Run は**有効化しない**
+- 既定 LEGACY_ONLY ＝ 挙動不変・`YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY` で即ロールバック
+
+**安全性**: Secret 値は読まず・出さず、外部通信ゼロ、deploy なし。Unit Test **275件 全 pass**。
+
+**ゆうさんが判断すること**
+1. この Batch 2（火鍋）PR を Merge するか（HIGH → 人間承認必須・既定オフで即時影響なし）
+2. 次候補（パスタ・Z1）へ進むか

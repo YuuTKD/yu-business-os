@@ -56,12 +56,29 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-010（タスクタイトル）
+## TASK-011（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-010 YU Business OS 2.0 Phase B2-4 Batch 2 — 琉球火鍋 SSOT 供給
+ステータス: DONE（2026-07-12 / feat/yu-business-os-2-ssot-config-supply-ryukyu-hinabe）
+概要:
+  ryukyu_hinabe のみを SSOT 供給対象に追加（hinabe alias 対応）。pasta_pasta /
+  z1 は対象外・不変。既定 LEGACY_ONLY・owner 承認時のみ SSOT・deploy なし。
+完了条件:
+  - [x] config_builder に BATCH2(ryukyu_hinabe) + build_ryukyu_hinabe_config
+  - [x] config_supply の scope 拡張 + hinabe alias 解決
+  - [x] POS/売上/別オーナー email/approval 保持・GBP 等 非有効化
+  - [x] pasta_pasta / z1 不変
+  - [x] Unit Test 20件追加 / 合計 275件 全 pass
+  - [x] Supply CLI ryukyu_hinabe OWNER_APPROVED → SSOT / GO
+スコープ（火鍋だけの one PR one purpose）:
+  - core/business_config/{config_builder,config_supply}.py
+  - tests/business_config/{test_ryukyu_hinabe_supply,test_config_supply}.py
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-009 YU Business OS 2.0 Phase B2-4 Batch 1 — SSOT 由来 config 供給（3事業）
 ステータス: DONE（2026-07-11 / feat/yu-business-os-2-ssot-config-supply-batch-1）

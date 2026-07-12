@@ -2,6 +2,57 @@
 
 ---
 
+## Phase B2-4 Batch 2 完了報告 — 琉球火鍋の SSOT 由来 config 供給
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-ssot-config-supply-ryukyu-hinabe |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-12 |
+| **リスク分類** | High（`core/business_config/**` 拡張）|
+| **売上直結度** | B（設定移行・監査性向上）|
+| **今回対象** | `ryukyu_hinabe`（琉球火鍋）**のみ** |
+| **対象外・不変** | `pasta_pasta` / `z1` |
+
+### 変更したファイル（火鍋だけの one PR one purpose）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/config_builder.py` | MODIFIED | `BATCH2_BUSINESSES=(ryukyu_hinabe,)` 追加・`build_ryukyu_hinabe_config` 追加 |
+| `core/business_config/config_supply.py` | MODIFIED | supply scope 拡張 + `hinabe` alias 解決 |
+| `tests/business_config/test_ryukyu_hinabe_supply.py` | ADDED | 20件 |
+| `tests/business_config/test_config_supply.py` | MODIFIED | 2件を「pasta/z1 のみ out-of-scope」へ更新 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | Batch 2＝火鍋のみを役割別に追記 |
+
+### 火鍋の正式設定
+
+- canonical id: `ryukyu_hinabe` / legacy alias: `hinabe`（alias としてのみ維持・削除なし）
+- `supply('hinabe')` は canonical に解決され**同一 config**
+- POS(usen・tabelog)・売上連携・別オーナー email・approval policy は legacy 通し
+- GBP 自動化 / 投稿 / LINE / Gmail / Scheduler / Cloud Run は**有効化しない**
+- 既定 LEGACY_ONLY / owner 承認時のみ SSOT / 失敗時 Legacy fallback（silent fallback なし）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 275 tests OK**（+20）
+- Config Supply CLI（ryukyu_hinabe OWNER_APPROVED）→ **SSOT / GO**
+- Business Config CLI GO / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ / bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] `pasta_pasta` / `z1`：**コード・設定・テスト・docs すべて未変更**
+- [x] Batch 1 の3事業：**不変**（SSOT 供給維持）
+- [x] Legacy / alias 削除：**なし**（hinabe alias 維持）
+- [x] SSOT_ONLY / 本番強制切替：**なし**
+- [x] deploy / Scheduler / Cloud Run env / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ 次候補（pasta_pasta・z1）の開始可否
+
+---
+
 ## Phase B2-4 Batch 1 完了報告 — SSOT 由来 config 供給（3事業）
 
 | 項目 | 内容 |
