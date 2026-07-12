@@ -426,3 +426,37 @@ deploy / Cloud Run env / Scheduler / 投稿 / LINE いずれも**なし**。
 
 `YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（既定）へ戻すだけ。1 設定・code revert 不要・
 外部通信不要・Legacy/alias 削除なし。
+
+---
+
+## Phase B2-4 Batch 1 移行結果（2026-07-11）— SSOT 由来 config 供給（3事業）
+
+Batch 1 = **TACHINOMIYA / TREE'S CATERING / TREE BEAUTY**。owner 承認時のみ、
+SSOT 由来の Legacy 互換 config を Runtime へ供給。既定は LEGACY_ONLY（供給なし）。
+
+### runtime_source と挙動
+
+| flag / 状況 | runtime_source | 挙動 |
+|---|---|---|
+| LEGACY_ONLY（既定）| LEGACY | legacy をそのまま（Builder 不呼出）|
+| AUTO 承認なし | LEGACY | owner 承認待ち |
+| AUTO+承認 / OWNER_APPROVED（mismatch 0）| **SSOT** | Builder が Legacy 互換 config を供給 |
+| SSOT 読込失敗 / shape 不正 | FALLBACK_LEGACY | Legacy へ fallback（理由付き）|
+| 非危険な mismatch | FALLBACK_LEGACY（decision FIX）| **隠さず FIX 報告**・legacy 供給 |
+| 事業ID混入 / 危険 mismatch | — | STOP |
+| 対象外3事業 | LEGACY | 挙動不変 |
+
+### fallback は「隠さない」
+
+- mismatch は fallback で握りつぶさず **FIX として報告**（silent fallback なし）
+- fallback には必ず `fallback_reason` を付す
+- Legacy/alias は削除しない・env の実体名は変更しない
+
+### rollback
+
+`YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（既定）に戻すだけ。SSOT→LEGACY を即切替。
+code revert 不要・env 削除でも Legacy 復帰。
+
+### Batch 2 候補
+
+`ryukyu_hinabe`（火鍋）→ その後 `pasta_pasta` / `z1`（別 PR・別承認）。

@@ -56,12 +56,28 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-009（タスクタイトル）
+## TASK-010（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-009 YU Business OS 2.0 Phase B2-4 Batch 1 — SSOT 由来 config 供給（3事業）
+ステータス: DONE（2026-07-11 / feat/yu-business-os-2-ssot-config-supply-batch-1）
+概要:
+  TACHINOMIYA / TREE'S CATERING / TREE BEAUTY について、owner 承認時のみ SSOT
+  由来の Legacy 互換 config を供給。既定 LEGACY_ONLY・対象外3事業は不変。
+完了条件:
+  - [x] core/business_config/config_builder.py（変換・shape 検証・mutation なし）
+  - [x] core/business_config/config_supply.py（3事業供給・batch）
+  - [x] runtime_loader.apply_runtime_config を supply へ拡張
+  - [x] scripts/business_config/check_ssot_config_supply.py（exit 0/1/2/3）
+  - [x] Unit Test 30件追加 / 合計 255件 全 pass
+  - [x] Supply CLI batch OWNER_APPROVED → 3事業 SSOT / batch GO
+スコープ（追加中心・既定挙動不変・対象外事業不変）:
+  - core/business_config/ · scripts/business_config/ · tests/business_config/
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-008 YU Business OS 2.0 Phase B2-3 — Runtime main path SSOT 接続
 ステータス: DONE（2026-07-11 / feat/runtime-main-path-ssot-connection）

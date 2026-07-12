@@ -2,6 +2,66 @@
 
 ---
 
+## Phase B2-4 Batch 1 完了報告 — SSOT 由来 config 供給（3事業）
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-ssot-config-supply-batch-1 |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/**` `scripts/**` 追加 + runtime_loader 拡張）|
+| **売上直結度** | B（設定移行・監査性向上）|
+| **対象3事業** | tachinomiya / catering（TREE'S CATERING）/ beauty（TREE BEAUTY）|
+
+### 変更したファイル
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/config_builder.py` | ADDED | SSOT→Legacy 互換 config 変換・shape 検証・mutation なし |
+| `core/business_config/config_supply.py` | ADDED | 3事業の供給判定（comparator + builder）・batch |
+| `core/business_config/runtime_loader.py` | MODIFIED | `apply_runtime_config` を supply へ拡張（既定 LEGACY_ONLY は identity）|
+| `scripts/business_config/check_ssot_config_supply.py` | ADDED | 供給検証 CLI（exit 0/1/2/3）|
+| `tests/business_config/test_config_supply.py` | ADDED | 30件 |
+| `tests/business_config/test_runtime_loader.py` | MODIFIED | 1件を B2-4 挙動へ更新（identity→SSOT 供給）|
+| `docs/YU_BUSINESS_OS_2_*.md`（5件）| MODIFIED | Builder/供給/rollback を役割別に追記 |
+
+### Config Builder / 供給ルール
+
+- SSOT 所有スカラー（monthly_target / business_type / status / cloud_run_service）のみ overlay、他は legacy 通し
+- **LINE env 名は overlay しない**（実 Cloud Run env を壊さない）
+- 入力 legacy を変更せず新規 dict を返す・Secret 値は読まない（env 名のみ）
+- SSOT 欠損/型不一致 → FIX（Legacy fallback）/ 事業ID混入 → STOP / mismatch は隠さず FIX
+
+### 3事業の結果
+
+- TACHINOMIYA: 昼2.5M+夜3.0M=**5.5M**・owner/staff LINE env 分離・staff 通知 approval 必須・shape 互換 GO
+- TREE'S CATERING: SSOT 供給 GO・shape 互換・inactive service を有効化しない・env 名のみ・外部接続ゼロ
+- TREE BEAUTY: SSOT 供給 GO・shape 互換・**active 状態維持**・GBP/Scheduler 実行なし・Tree Beauty 有効化なし
+
+### 対象外3事業（挙動不変）
+
+ryukyu_hinabe / pasta_pasta / z1 → supply は常に **LEGACY**（供給対象外）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 255 tests OK**（+30）
+- Config Supply CLI（batch OWNER_APPROVED）→ 3事業 SSOT / **batch GO**
+- Runtime main-path CLI GO / Business Config CLI GO / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ / bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] 既定挙動：**不変**（LEGACY_ONLY）
+- [x] 対象外事業：**変更なし**
+- [x] 既存設定削除 / Legacy 削除 / 本番強制切替 / SSOT_ONLY：**なし**
+- [x] deploy / Scheduler / Cloud Run env / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Batch 2 の開始可否
+
+---
+
 ## Phase B2-3 完了報告 — Runtime main path を SSOT Resolver へ安全接続
 
 | 項目 | 内容 |
