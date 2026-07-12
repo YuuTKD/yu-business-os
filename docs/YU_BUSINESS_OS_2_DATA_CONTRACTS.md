@@ -615,3 +615,34 @@ staff 通知は常に owner approval 必須（`staff_send_requires_owner_approva
 
 **検証（loader/comparator）**: 昼夜合計不一致→FIX / alias 循環→STOP /
 unknown alias target→FIX / slug alias が実 id/slug と衝突→STOP。
+
+### 12.5 Config Builder / Supply 契約（Phase B2-4 Batch 1）
+
+**BuildResult**（`core/business_config/config_builder.py`）
+```
+business_id: string
+decision:    GO | FIX | STOP
+source:      SSOT | FALLBACK_LEGACY
+config:      dict | null   # legacy 互換 shape（GO 時）
+issues:      [string]
+reason:      string | null
+```
+
+**SSOT が overlay するキー（他は legacy 通し）**
+```
+monthly_target  business_type  status(ACTIVE→"active")  cloud_run_service
+```
+**overlay しないもの**: LINE env 名（実 env を壊さない）/ spreadsheet_id 値 /
+menu_map / content_themes / line_channels 構造 / email / pos folder …
+
+**Supply 結果**（`config_supply.py`）
+```
+runtime_source: LEGACY | SSOT | FALLBACK_LEGACY
+decision:       GO | FIX | STOP | INTERNAL_ERROR
+used_fallback / fallback_reason / config_shape_valid / comparison_decision / warnings
+```
+
+**CLI exit**（`check_ssot_config_supply.py`）: 0=GO / 1=FIX / 2=STOP / 3=INTERNAL_ERROR
+
+**禁止**: Secret 値取得・env 値供給・入力 mutation・不明値の推測・silent fallback・
+`SSOT_ONLY`・対象外事業への SSOT 供給。

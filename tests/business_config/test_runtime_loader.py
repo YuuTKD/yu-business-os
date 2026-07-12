@@ -103,14 +103,19 @@ class ApplyHookTest(unittest.TestCase):
         out = apply_runtime_config(TACHI, cfg, emit_log=False)
         self.assertIs(out, cfg)  # object unchanged, same identity
 
-    def test_shape_unchanged_owner_approved(self):
+    def test_ssot_supplied_owner_approved(self):
+        # Phase B2-4: under OWNER_APPROVED, a Batch-1 business receives an
+        # SSOT-derived config with the FULL legacy shape and SSOT-sourced values.
+        from configs.business_registry import get as get_config
         os.environ["YU_CONFIG_RUNTIME_MODE"] = "OWNER_APPROVED"
         os.environ["YU_OWNER_APPROVED"] = "true"
         try:
-            cfg = {"name": "TACHINOMIYA", "monthly_target": 5500000}
-            out = apply_runtime_config(TACHI, cfg, emit_log=False)
-            self.assertIs(out, cfg)
-            self.assertEqual(out, {"name": "TACHINOMIYA", "monthly_target": 5500000})
+            legacy = get_config(TACHI)
+            out = apply_runtime_config(TACHI, legacy, emit_log=False)
+            # full legacy shape preserved, SSOT-sourced target
+            self.assertEqual(set(out.keys()), set(legacy.keys()))
+            self.assertEqual(out["monthly_target"], 5500000)
+            self.assertIsNot(out, legacy)          # a new dict, legacy not mutated
         finally:
             os.environ.pop("YU_CONFIG_RUNTIME_MODE", None)
             os.environ.pop("YU_OWNER_APPROVED", None)

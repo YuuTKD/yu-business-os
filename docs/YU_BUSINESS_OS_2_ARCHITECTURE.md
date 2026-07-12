@@ -678,3 +678,32 @@ scripts/business_config/validate_business_configs.py   検証 CLI（exit 0/1/2/3
 現状は 5 箇所（`business_registry.py` / `_BUSINESS_CONFIGS` /
 `system_health.py` / `executive_team.py` / `entrypoint.py`）に事業設定が分散。
 SSOT はこれらを統合する上位正本だが、Phase B1 では **読取・比較のみ**。
+
+---
+
+## Phase B2-4 Batch 1 実装記録（2026-07-11）— SSOT 値の供給（3事業）
+
+SSOT を「判定に使うだけ」から、**SSOT の値を Legacy 互換 config に変換して Runtime
+へ供給できる状態**へ進めた。対象は **TACHINOMIYA / TREE'S CATERING / TREE BEAUTY**。
+
+### Config Builder の責務と配置
+
+```
+core/business_config/config_builder.py   SSOT → Legacy 互換 dict へ変換 + shape 検証
+core/business_config/config_supply.py     3事業の供給判定（comparator + builder）
+core/business_config/runtime_loader.py    apply_runtime_config を supply へ拡張
+scripts/business_config/check_ssot_config_supply.py  供給検証 CLI
+```
+
+### Builder の設計（安全な部分供給）
+
+- SSOT が所有するスカラー（`monthly_target` / `business_type` / `status` /
+  `cloud_run_service`）のみを legacy dict の**ディープコピー**へ overlay
+- それ以外（menu_map / content_themes / line_channels / email / pos folder …）は
+  legacy から**そのまま通す**
+- **LINE の env 名は overlay しない**（実 Cloud Run env は legacy 名で設定されており、
+  名前変更は本番切替＝禁止）
+- 入力 legacy は**変更せず**新規 dict を返す。Secret 値は読まない（env 名のみ）
+- SSOT フィールド欠損/型不一致 → FIX（Legacy fallback）/ 事業ID不一致 → STOP
+
+対象外3事業（`ryukyu_hinabe` / `pasta_pasta` / `z1`）の Runtime 挙動は不変。

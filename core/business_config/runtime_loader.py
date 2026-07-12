@@ -108,25 +108,49 @@ def resolve_source(business_name: str, repo_root: Optional[str] = None,
 def apply_runtime_config(business_name: str, legacy_config: Any,
                          repo_root: Optional[str] = None,
                          emit_log: bool = True) -> Any:
-    """Main-path hook. Returns the legacy config object **unchanged**.
+    """Main-path hook. Returns the config the runtime should use.
 
-    In LEGACY_ONLY (default) it is a pass-through. In AUTO/OWNER_APPROVED it
-    additionally records which source the resolver would use (SSOT is verified
-    equal to legacy when chosen). It never changes the returned object's shape
-    or values, and never raises.
+    * LEGACY_ONLY (default): pass-through — the legacy object is returned
+      **unchanged** (identity preserved). The resolver is not consulted.
+    * AUTO / OWNER_APPROVED for a Batch-1 business (tachinomiya / catering /
+      beauty): when owner-approved and the SSOT is clean & matches, an
+      SSOT-derived legacy-compatible config is supplied (same shape/keys,
+      values sourced from SSOT). On any mismatch / fallback the legacy object is
+      returned unchanged.
+
+    Never raises (fail-closed to legacy) and never reads/logs token values.
     """
     try:
-        decision = resolve_source(business_name, repo_root=repo_root)
+        flag = get_flag()
+        if flag == LEGACY_ONLY:
+            if emit_log:
+                print(f"[runtime_config] business={business_name} flag={LEGACY_ONLY} "
+                      f"source=LEGACY decision=GO reason=flag_legacy_only")
+            return legacy_config
+
+        from .config_supply import supply, SUPPLY_SCOPE
+        if business_name not in SUPPLY_SCOPE:
+            if emit_log:
+                print(f"[runtime_config] business={business_name} flag={flag} "
+                      f"source=LEGACY reason=business_out_of_batch1")
+            return legacy_config
+
+        res = supply(business_name, mode=flag, owner_approved=is_owner_approved(),
+                     repo_root=repo_root)
         if emit_log:
             print(
                 "[runtime_config] "
-                f"business={decision['business']} flag={decision['flag']} "
-                f"source={decision['source']} decision={decision['decision']} "
-                f"fallback={decision['fallback_used']} reason={decision['reason']}"
+                f"business={res['business_id']} flag={flag} "
+                f"source={res['runtime_source']} decision={res['decision']} "
+                f"fallback={res['used_fallback']} reason={res['fallback_reason']}"
             )
+        if (res["runtime_source"] == "SSOT" and res["decision"] == "GO"
+                and res["config"] is not None):
+            return res["config"]      # SSOT-derived, legacy-compatible config
+        return legacy_config          # legacy / fallback — object unchanged
     except Exception as exc:  # fail closed — never break the main path
         print(f"[runtime_config] fail-closed to LEGACY ({type(exc).__name__})")
-    return legacy_config
+        return legacy_config
 
 
 def runtime_decision(business_name: str, repo_root: Optional[str] = None) -> Dict[str, Any]:

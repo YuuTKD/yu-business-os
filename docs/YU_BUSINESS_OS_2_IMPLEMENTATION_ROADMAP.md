@@ -546,3 +546,30 @@ Cloud Run/投稿/LINE いずれもなし。
 2. `apply_runtime_config` を「判定のみ」から「SSOT 由来 config の実供給」へ拡張
    （legacy 互換シェイプを SSOT から構築・1 事業ずつ・owner 承認）
 3. 安定後に `SSOT_ONLY`（Legacy 廃止）を別 PR・別承認で検討
+
+---
+
+## Phase B2-4 Batch 1（SSOT 由来 config 供給・3事業）— 実装完了 2026-07-11
+
+対象 = **TACHINOMIYA / TREE'S CATERING / TREE BEAUTY**。owner 承認時のみ、SSOT
+由来の Legacy 互換 config を供給。既定 LEGACY_ONLY・本番未 deploy。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| `config_builder.py`（SSOT→legacy 互換・shape 検証・mutation なし）| ✅ |
+| `config_supply.py`（3事業供給判定・comparator + builder・batch）| ✅ |
+| `runtime_loader.apply_runtime_config` を supply へ拡張 | ✅ |
+| `check_ssot_config_supply.py`（exit 0/1/2/3）| ✅ |
+| Unit Test | ✅ **30件追加 / 合計 255件 全 pass** |
+| Supply CLI（batch OWNER_APPROVED）| ✅ **3事業 SSOT / batch GO** |
+
+### Shadow / Runtime 整合
+
+3事業について Shadow comparator・Runtime resolver・Config Builder・Legacy shape
+validator がすべて GO で一致（mismatch 0・shape 互換）。
+
+### Batch 2 対象候補（今回は未着手）
+
+`ryukyu_hinabe`（火鍋）→ 続いて `pasta_pasta` / `z1`（別 PR・別承認・1 事業ずつ）。
