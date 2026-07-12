@@ -56,12 +56,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-007（タスクタイトル）
+## TASK-008（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-007 YU Business OS 2.0 Phase B2-2 — TACHINOMIYA SSOT primary + Legacy fallback
+ステータス: DONE（2026-07-11 / feat/tachinomiya-ssot-primary-with-legacy-fallback）
+概要:
+  TACHINOMIYA のみ設定読込の第一候補を SSOT に切替可能にする（Legacy fallback・
+  owner 承認必須）。mismatch は fallback せず FIX/STOP。SSOT_ONLY 禁止。
+完了条件:
+  - [x] core/business_config/runtime_resolver.py（4 mode・fail-closed）
+  - [x] scripts/business_config/check_tachinomiya_runtime.py（exit 0/10/20/30/40/50）
+  - [x] SSOT は承認+mismatch 0+有効時のみ / 他事業 STOP / rollback=LEGACY_ONLY
+  - [x] Unit Test 25件追加 / 合計 206件 全 pass
+  - [x] Runtime CLI 承認 GO(SSOT) / 未承認 OWNER_APPROVAL_REQUIRED
+スコープ（追加のみ・本番常時経路 未切替）:
+  - core/business_config/ · scripts/business_config/ · tests/business_config/
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-006 YU Business OS 2.0 Phase B2-1 — TACHINOMIYA SSOT Shadow 接続
 ステータス: DONE（2026-07-11 / feat/tachinomiya-ssot-shadow-connection）

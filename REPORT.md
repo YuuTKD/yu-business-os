@@ -2,6 +2,61 @@
 
 ---
 
+## Phase B2-2 完了報告 — TACHINOMIYA SSOT primary + Legacy fallback
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/tachinomiya-ssot-primary-with-legacy-fallback |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-11 |
+| **リスク分類** | High（`core/**` `scripts/**` 追加）|
+| **売上直結度** | B（設定移行・監査性向上）|
+
+### 実装したファイル（追加のみ）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/runtime_resolver.py` | ADDED | TACHINOMIYA 限定 source 選択（SSOT primary / Legacy fallback）|
+| `scripts/business_config/check_tachinomiya_runtime.py` | ADDED | Runtime CLI（exit 0/10/20/30/40/50）|
+| `tests/business_config/test_runtime_resolver.py` | ADDED | 25件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | SSOT primary/fallback/rollback を役割別に追記 |
+
+### runtime mode / source 選択
+
+- モード: LEGACY_ONLY / SHADOW_ONLY / **SSOT_PRIMARY_WITH_LEGACY_FALLBACK** / SSOT_ONLY(**禁止=STOP**)
+- SSOT 使用条件: owner 承認 + mismatch 0 + SSOT 有効 + migration ∈ {SHADOW_DEFINED, VERIFIED}
+- fallback 条件: SSOT 読込失敗 / schema 不完全（**mismatch は fallback しない → FIX/STOP**）
+- 未承認 → OWNER_APPROVAL_REQUIRED / 他事業 SSOT primary → STOP
+- TACHINOMIYA 限定。他事業は常に LEGACY
+
+### 安全設計
+
+- SSOT 値は承認+一致時のみ返す。危険差分（昼夜不一致・他事業混入・secret）は STOP
+- env 変数**名**のみ比較（token 値は読まず・出さず・ログしない）
+- import 副作用なし（AST）・外部通信ゼロ・fail-closed
+- 本番 main path 未変更（default OFF hook のみ）
+- **rollback**: `--mode LEGACY_ONLY`（引数1つ）で即復旧・Legacy/alias 削除なし
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 206 tests OK**（+25）
+- Runtime CLI: 未承認 rc=20 / 承認 rc=0（runtime_source=SSOT）/ SSOT_ONLY rc=40 / 他事業 rc=40
+- Shadow CLI GO / Business Config CLI GO / Registry CLI GO / Secret scan CLEAN / 外部通信ゼロ
+
+### 既存構成への影響チェック
+
+- [x] 本番常時経路の切替：**なし**（承認時のみ SSOT・default OFF）
+- [x] 他事業切替 / SSOT_ONLY：**なし**（STOP）
+- [x] Legacy 削除 / alias 削除：**なし**
+- [x] Cloud Run / Scheduler / 投稿 / LINE・Gmail / GCS・Sheets：**なし**
+- [x] `scripts/acquisition` / Tree Beauty / `daily_post_limit`：**未変更**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ Phase B2-3（本番経路接続）の開始可否
+
+---
+
 ## Phase B2-1 完了報告 — TACHINOMIYA SSOT Shadow 接続
 
 | 項目 | 内容 |

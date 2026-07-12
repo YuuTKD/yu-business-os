@@ -378,3 +378,25 @@ TACHINOMIYA を対象に、Legacy と SSOT を**実行時比較**する Shadow A
 
 比較対象は env 変数**名**のみ（token 値は読まない）。mismatch は fail-closed
 （危険=STOP / 非危険=SHADOW は FIX・ENFORCE は STOP）。実切替は Phase B2-2。
+
+---
+
+## Phase B2-2 移行結果（2026-07-11）— TACHINOMIYA SSOT primary + Legacy fallback
+
+TACHINOMIYA のみ、設定読込の第一候補を **SSOT** に切替可能にした（Legacy fallback 付き）。
+Cloud Run deploy・Scheduler 変更・外部送信は**なし**。
+
+| 項目 | 内容 |
+|---|---|
+| Resolver | `core/business_config/runtime_resolver.py`（TACHINOMIYA 限定）|
+| CLI | `scripts/business_config/check_tachinomiya_runtime.py`（exit 0/10/20/30/40/50）|
+| runtime mode | LEGACY_ONLY / SHADOW_ONLY / **SSOT_PRIMARY_WITH_LEGACY_FALLBACK** / SSOT_ONLY(禁止=STOP)|
+| SSOT 使用条件 | 承認済み + mismatch 0 + SSOT 有効 + migration ∈ {SHADOW_DEFINED, VERIFIED} |
+| fallback 条件 | SSOT 読込失敗 / schema 不完全（**mismatch は fallback しない → FIX/STOP**）|
+| 他事業 | 常に LEGACY（SSOT primary 要求は STOP）|
+| 本番 main path | **未変更**（default OFF hook のみ・強制接続なし）|
+
+### rollback switch
+
+`--mode LEGACY_ONLY`（引数1つ）で即 Legacy に戻る。Cloud Run 未設定のため
+コード/引数レベルの切替のみ・外部通信不要・Legacy/alias は削除しない。

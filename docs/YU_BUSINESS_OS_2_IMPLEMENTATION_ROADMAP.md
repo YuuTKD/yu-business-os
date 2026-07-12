@@ -495,3 +495,28 @@ TACHINOMIYA の設定に SSOT を **Shadow Mode で副次接続**。Legacy と S
 2. ENFORCE_COMPARE を CI/検証で常時 GO
 3. 1 事業（TACHINOMIYA）ずつ read-source を SSOT へ切替（HIGH・owner 承認・人間 Merge）
    ※ env 変数の実体は変えず、参照経路のみ段階切替
+
+---
+
+## Phase B2-2（TACHINOMIYA SSOT primary + Legacy fallback）— 実装完了 2026-07-11
+
+TACHINOMIYA のみ、設定読込の第一候補を SSOT に切替可能にした（Legacy fallback 付き・
+owner 承認必須）。**Cloud Run deploy / Scheduler 変更 / 外部送信なし**。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| `runtime_resolver.py`（4 mode・SSOT_ONLY 禁止・fail-closed）| ✅ |
+| `check_tachinomiya_runtime.py`（exit 0/10/20/30/40/50）| ✅ |
+| SSOT は承認+mismatch 0+有効時のみ / mismatch は fallback せず FIX・STOP | ✅ |
+| 他事業は LEGACY・SSOT primary 要求は STOP | ✅ |
+| rollback switch（`--mode LEGACY_ONLY`）| ✅ |
+| Unit Test | ✅ **25件追加 / 合計 206件 全 pass** |
+| Runtime CLI（承認）| ✅ **GO / runtime_source=SSOT** |
+
+### Phase B2-3 前提（次段階）
+
+1. SSOT_PRIMARY が一定期間安定 GO（fallback 発生ゼロ）
+2. 本番 main path（entrypoint 等）への Resolver 接続を owner 承認で段階導入
+3. その後に初めて `SSOT_ONLY`（Legacy 廃止）を別 PR・別承認で検討
