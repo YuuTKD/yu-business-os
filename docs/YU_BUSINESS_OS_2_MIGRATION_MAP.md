@@ -400,3 +400,29 @@ Cloud Run deploy・Scheduler 変更・外部送信は**なし**。
 
 `--mode LEGACY_ONLY`（引数1つ）で即 Legacy に戻る。Cloud Run 未設定のため
 コード/引数レベルの切替のみ・外部通信不要・Legacy/alias は削除しない。
+
+---
+
+## Phase B2-3 移行結果（2026-07-11）— 本番 main path へ Resolver を安全接続
+
+`core/entrypoint.py` の設定読込直後に、SSOT Runtime Resolver を **feature flag
+（既定 LEGACY_ONLY）越しに接続**した。既定では従来と完全に同一挙動。
+
+| 項目 | 内容 |
+|---|---|
+| Runtime Loader | `core/business_config/runtime_loader.py`（flag 判定・fail-closed）|
+| Business Loader | `core/business_config/business_loader.py`（legacy 取得＋接続）|
+| Entrypoint | `apply_runtime_config` を追加呼出（既存 CONFIG は**そのまま返す**）|
+| CLI | `scripts/business_config/check_runtime_main_path.py`（exit 0/10/20/30/40/50）|
+| Feature flag | `YU_CONFIG_RUNTIME_MODE`: **LEGACY_ONLY(既定)** / AUTO / OWNER_APPROVED |
+| SSOT 使用 | owner 承認時のみ（AUTO+`YU_OWNER_APPROVED=true` または OWNER_APPROVED）|
+| 対象 | TACHINOMIYA のみ・他事業は常に LEGACY |
+
+**重要**: `apply_runtime_config` は CONFIG オブジェクトを**変更せず同一物を返す**
+（source を判定・記録するのみ）。既定 LEGACY_ONLY では Resolver を呼ばない。
+deploy / Cloud Run env / Scheduler / 投稿 / LINE いずれも**なし**。
+
+### rollback
+
+`YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（既定）へ戻すだけ。1 設定・code revert 不要・
+外部通信不要・Legacy/alias 削除なし。
