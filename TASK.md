@@ -56,12 +56,28 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-013（タスクタイトル）
+## TASK-014（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-013 YU Business OS 2.0 Phase B2-7 — Production Activation Preparation
+ステータス: DONE（2026-07-12 / feat/yu-business-os-2-production-activation-prep）
+概要:
+  READY 3事業（catering/beauty/ryukyu_hinabe）を deploy 直前状態まで準備し、
+  TACHINOMIYA を技術確認。deploy は未承認・本番操作なし。
+完了条件:
+  - [x] core/business_config/production_plan.py（PREPARED/MANUAL_CHECK/NOT_READY/STOP）
+  - [x] check_activation_plan.py / check_tachinomiya_technical_readiness.py
+  - [x] 3事業 PREPARED・deploy/scheduler/send approval=false・command 未実行
+  - [x] TACHINOMIYA token/GBP=MANUAL_CHECK・写真15枚不足・PHOTO_PENDING_READY 対応
+  - [x] rollback（事業別+一括）検証
+  - [x] Unit Test 32件追加 / 合計 371件 全 pass
+スコープ（準備・技術確認のみ・本番操作なし）:
+  - core/business_config/ · scripts/business_config/ · tests/business_config/
+  - docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-012 YU Business OS 2.0 Phase B2-6 — Readiness 承認 + Activation Dry Run
 ステータス: DONE（2026-07-12 / feat/yu-business-os-2-readiness-activation-batch）
