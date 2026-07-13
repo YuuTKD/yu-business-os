@@ -657,3 +657,31 @@ owner の readiness 承認（catering / beauty / ryukyu_hinabe）を台帳に記
 1. TACHINOMIYA: 画像補充 + token/GBP 確認 → READY
 2. **deploy 承認**（readiness 承認とは別）→ 実 Activation（1事業ずつ）
 3. pasta_pasta / z1 の SSOT 供給
+
+---
+
+## Phase B2-7（Production Activation Preparation）— 実装完了 2026-07-12
+
+READY 3事業を **deploy 直前状態**まで準備し、TACHINOMIYA を技術確認。**deploy は未承認・
+本番操作なし**。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| `core/business_config/production_plan.py`（PREPARED/MANUAL_CHECK/NOT_READY/STOP）| ✅ |
+| `check_activation_plan.py` / `check_tachinomiya_technical_readiness.py`（CLI）| ✅ |
+| Unit Test | ✅ **32件追加 / 合計 371件 全 pass** |
+
+### 状態
+
+| 事業 | Plan decision | 備考 |
+|---|---|---|
+| catering / beauty / ryukyu_hinabe | **PREPARED** | deploy 承認待ち（未付与）・rollback 検証済み・command は候補のみ |
+| tachinomiya | (technical) **MANUAL_CHECK_REQUIRED** | token/GBP 手動確認要・写真 **15枚**不足（interior+4/drink+5/exterior+6）|
+
+### 次の承認ポイント（別 PR）
+
+1. TACHINOMIYA: 画像15枚補充 + Threads token/GBP の手動確認 → PHOTO_PENDING_READY → READY
+2. **deploy 承認**（readiness 承認とは別・1事業ずつ）→ 実 Activation
+3. pasta_pasta / z1 の SSOT 供給

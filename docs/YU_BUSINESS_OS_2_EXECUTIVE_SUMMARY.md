@@ -405,3 +405,29 @@ rollback 可。Unit Test **300件 全 pass**。
 **ゆうさんが判断すること**
 1. この Readiness 承認 + Activation Dry Run PR を Merge するか（HIGH → 人間承認必須・本番操作なし）
 2. TACHINOMIYA の写真補充・token/GBP 確認を進めるか / deploy 承認へ進むか（別 PR）
+
+---
+
+## Phase B2-7 実装完了報告（2026-07-12）
+
+READY 3事業（Catering・Beauty・琉球火鍋）を **「deploy 直前」の状態**まで準備し、
+TACHINOMIYA の技術確認を行った。**実際の deploy・投稿・LINE 送信は一切なし**。
+
+**結果**
+- Catering / Beauty / 琉球火鍋 → **PREPARED**（準備完了・deploy 承認だけ待ち）
+  - Cloud Run サービス名・プロジェクト・リージョン・環境変数名を確定、ロールバック手順も検証
+  - deploy コマンドは「候補（実行しない）」として生成。**deploy 承認は未付与**
+- TACHINOMIYA → **要手動確認**
+  - Threads token・Google 認証は「設定は存在するが、有効性/期限は値を読まずに確認できない」→ 手動確認要
+  - 写真は **15枚不足**（店内+4 / ドリンク+5 / 外観+6）
+  - Scheduler OFF 維持・投稿ゼロ・LINE ゼロ
+
+**重要な線引き**: 今回は**「deploy できる直前まで」の準備**であって、**deploy そのものの承認では
+ありません**。deploy はさらに別の承認が必要です（今回は未承認＝実行なし）。全事業 1 設定で即ロールバック可。
+
+**安全性**: Secret/token 非表示・非読取、外部通信ゼロ、コマンド実行フラグ常に false。
+Unit Test **371件 全 pass**。
+
+**ゆうさんが判断すること**
+1. この Activation 準備 PR を Merge するか（HIGH → 人間承認必須・本番操作なし）
+2. TACHINOMIYA の写真補充・token/GBP 手動確認 / **deploy 承認**（別 PR）へ進むか

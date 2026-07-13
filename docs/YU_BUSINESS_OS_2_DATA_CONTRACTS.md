@@ -701,3 +701,29 @@ plan:     current/desired state・env NAME 変更・cloud_run_service・
 ```
 **CLI exit**（`dry_run_ssot_activation.py`）: 0=DRY_RUN_GO / 1=READINESS_BLOCKED /
 2=OWNER_APPROVAL_REQUIRED / 3=DEPLOY_APPROVAL_REQUIRED / 4=STOP / 5=INTERNAL_ERROR
+
+### 12.8 Production Plan 契約（Phase B2-7）
+
+**Production Plan**（`core/business_config/production_plan.py`・READY 3事業）
+```
+business_id / readiness / current_runtime_mode / proposed_runtime_mode /
+cloud_run_service / project_id / region / env_var_names[] /
+deploy_required / deploy_approved(false) / scheduler_required / scheduler_approved(false) /
+external_send_required / external_send_approved(false) / smoke_tests[] / health_check /
+rollback_steps[] / command_candidates{execute:false, deploy/env_update/smoke/rollback} /
+blockers[] / warnings[] / decision / next_action
+```
+**decision**: PREPARED | DEPLOY_APPROVAL_REQUIRED | MANUAL_CHECK_REQUIRED | NOT_READY | STOP
+（deploy_approved は本 phase で常に false。command は候補文字列・**実行フラグ常に false**・不明値は `UNKNOWN`）
+
+**TACHINOMIYA Technical Readiness**（`tachinomiya_technical_readiness`）
+```
+threads_token / gbp / image / scheduler_expected(OFF) / posting_executed(false) /
+line_sent(false) / manual_checks[] / decision / next_action
+```
+decision: PHOTO_PENDING_READY（token+GBP 確認済・写真のみ）| MANUAL_CHECK_REQUIRED（token/GBP 手動確認要）| READY
+
+**CLI exit**（`check_activation_plan.py` / `check_tachinomiya_technical_readiness.py`）:
+0=PREPARED/PHOTO_PENDING_READY / 1=MANUAL_CHECK_REQUIRED / 2=NOT_READY / 3=STOP / 4=INTERNAL_ERROR
+
+**この phase は準備・技術確認のみ**: deploy / env 変更 / Scheduler / 投稿 / 送信は一切実行しない。

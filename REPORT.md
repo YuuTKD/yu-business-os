@@ -2,6 +2,63 @@
 
 ---
 
+## Phase B2-7 完了報告 — Production Activation Preparation
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-production-activation-prep |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-12 |
+| **リスク分類** | High（`core/business_config/**` `scripts/**` 追加）|
+| **売上直結度** | B（本番移行準備）|
+| **対象（PART A）** | catering / beauty / ryukyu_hinabe（deploy 直前準備）|
+| **対象（PART B）** | tachinomiya（技術確認のみ）|
+| **対象外・不変** | pasta_pasta / z1 |
+
+### 変更したファイル（追加のみ）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/business_config/production_plan.py` | ADDED | Activation Plan（PREPARED 等）+ TACHINOMIYA 技術判定 |
+| `scripts/business_config/check_activation_plan.py` | ADDED | Plan CLI（exit 0/1/2/3/4）|
+| `scripts/business_config/check_tachinomiya_technical_readiness.py` | ADDED | 技術確認 CLI |
+| `tests/business_config/test_activation_plan.py` | ADDED | 32件 |
+| `docs/YU_BUSINESS_OS_2_*.md`（3件）| MODIFIED | Plan/技術確認/次承認を役割別に追記 |
+
+### PART A: READY 3事業の deploy 直前準備
+
+- 各事業 → **PREPARED**（Cloud Run service 名・project（tree-beauty-ai-499303）・region（asia-northeast1）・env 変数名確定）
+- deploy_approved / scheduler_approved / external_send_approved = **すべて false**（readiness 承認と分離）
+- deploy / env update / smoke / rollback は**候補コマンド文字列**（`NOT EXECUTED`・実行フラグ常に false）
+- rollback: 事業別 + 一括を検証（`YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`・code revert 不要・alias 維持）
+
+### PART B: TACHINOMIYA 技術確認（値は一切読まない）
+
+- Threads token: env NAME 宣言確認 → **MANUAL_CHECK_REQUIRED**（値非表示・期限は Meta で要確認）
+- GBP: auth ファイル存在確認・location env NAME 確認 → **MANUAL_CHECK_REQUIRED**（credentials 非表示）
+- 画像: **15枚不足**（interior+4 / drink+5 / exterior+6）
+- Scheduler OFF 維持・投稿ゼロ・LINE ゼロ / token+GBP 確認済み+写真のみなら **PHOTO_PENDING_READY**
+- 総合: **MANUAL_CHECK_REQUIRED**
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 371 tests OK**（+32）
+- Activation Plan CLI（ready-three）→ **PREPARED / rc=0**・TACHINOMIYA 技術 CLI → MANUAL_CHECK_REQUIRED / rc=1
+- Readiness / Activation Dry Run / Config Supply / Business Config / Registry CLI 既知状態・Secret scan CLEAN・外部通信ゼロ・bash -n OK
+
+### 既存構成への影響チェック
+
+- [x] deploy / env 変更 / Scheduler / 投稿 / LINE・Gmail / GCS・Sheets：**実行なし**（候補のみ）
+- [x] readiness 承認を deploy 承認へ拡大していない（deploy_approved=false）
+- [x] pasta_pasta / z1 / `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+- [x] Secret / credentials / token 値：**非表示・非読取**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ **deploy 承認**（別 PR）/ TACHINOMIYA 運用確認
+
+---
+
 ## Phase B2-6 完了報告 — Readiness 承認 + Activation Dry Run（4事業）
 
 | 項目 | 内容 |
