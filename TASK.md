@@ -56,12 +56,28 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-012（タスクタイトル）
+## TASK-013（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-012 YU Business OS 2.0 Phase B2-6 — Readiness 承認 + Activation Dry Run
+ステータス: DONE（2026-07-12 / feat/yu-business-os-2-readiness-activation-batch）
+概要:
+  catering/beauty/ryukyu_hinabe の readiness 承認を台帳記録し READY へ。TACHINOMIYA
+  を read-only 監査。4事業の本番接続を Dry Run 判定。deploy は未承認・本番操作なし。
+完了条件:
+  - [x] configs/governance/readiness_approvals.yaml + approvals.py（deploy=false 強制）
+  - [x] 3事業 READY / tachinomiya ALMOST_READY（PHOTO_PENDING_READY 対応）
+  - [x] tachinomiya_audit.py（token/GBP/画像・値は読まない）
+  - [x] activation.py + dry_run CLI（deploy 未承認で DEPLOY_APPROVAL_REQUIRED 停止）
+  - [x] rollback（事業別 + 一括・LEGACY_ONLY）検証
+  - [x] Unit Test 39件追加 / 合計 339件 全 pass
+スコープ（承認記録・監査・Dry Run のみ・本番操作なし）:
+  - configs/governance/ · core/business_config/ · scripts/business_config/
+  - tests/business_config/ · docs/YU_BUSINESS_OS_2_*.md · REPORT.md · TASK.md
 
 ## TASK-011 YU Business OS 2.0 Phase B2-5 — SSOT Production Readiness Gate
 ステータス: DONE（2026-07-12 / feat/yu-business-os-2-ssot-readiness-gate）

@@ -382,3 +382,26 @@ rollback 可。Unit Test **300件 全 pass**。
 **ゆうさんが判断すること**
 1. この Readiness Gate PR を Merge するか（HIGH → 人間承認必須・監査のみで即時影響なし）
 2. TACHINOMIYA の運用確認（画像補充・token・GBP）を進め READY 化するか
+
+---
+
+## Phase B2-6 実装完了報告（2026-07-12）
+
+ゆうさんの承認（Catering・Beauty・琉球火鍋）を**監査可能な台帳に記録**し、3事業を
+**READY** に更新した。TACHINOMIYA は自動監査し、本番接続を**予行演習（Dry Run）**した。
+
+**結果**
+- Catering / Beauty / 琉球火鍋 → **READY**（承認記録済み）。ただし **deploy は別承認**
+- TACHINOMIYA → **ALMOST_READY**（写真不足 + Threads token/Google 認証は要手動確認）
+  ※ token・認証の値は一切読まず、期限は「Meta/GCP で要確認」と正直に報告
+- 本番接続 Dry Run: 3事業は「readiness 完了・deploy 承認待ち」、火鍋店は「準備未了」で停止
+- **実際の deploy・投稿・LINE・Scheduler 変更は一切なし**。全事業 1 設定で即ロールバック可
+
+**重要な線引き**: 今回の承認は**「準備完了」の承認**であって、**deploy（本番反映）の承認では
+ありません**。deploy はさらに別の承認が必要です（今回は未承認＝実行なし）。
+
+**安全性**: Secret 非表示・外部通信ゼロ・既定 LEGACY_ONLY 不変。Unit Test **339件 全 pass**。
+
+**ゆうさんが判断すること**
+1. この Readiness 承認 + Activation Dry Run PR を Merge するか（HIGH → 人間承認必須・本番操作なし）
+2. TACHINOMIYA の写真補充・token/GBP 確認を進めるか / deploy 承認へ進むか（別 PR）

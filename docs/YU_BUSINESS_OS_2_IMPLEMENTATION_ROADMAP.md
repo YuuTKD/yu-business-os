@@ -625,3 +625,35 @@ SSOT 供給対象の **4事業**（tachinomiya / catering / beauty / ryukyu_hina
 
 TACHINOMIYA の運用確認（画像補充・token・GBP）→ owner 承認で READY。以降 deploy は
 別承認・別 PR。pasta_pasta / z1 の SSOT 供給は別途。
+
+---
+
+## Phase B2-6（Readiness 承認 + Activation Dry Run）— 実装完了 2026-07-12
+
+owner の readiness 承認（catering / beauty / ryukyu_hinabe）を台帳に記録し READY へ
+更新。TACHINOMIYA を read-only 監査。4事業の本番接続を Dry Run で判定（**実 deploy なし**）。
+
+### 完了
+
+| 項目 | 状態 |
+|---|---|
+| Owner Approval Ledger（`readiness_approvals.yaml` + `approvals.py`）| ✅ deploy/scheduler/send=false |
+| Readiness: catering / beauty / ryukyu_hinabe → **READY** | ✅ 台帳連携 |
+| TACHINOMIYA 監査（token/GBP=MANUAL_CHECK・画像=PHOTO_PENDING）→ **ALMOST_READY** | ✅ |
+| PHOTO_PENDING_READY（写真のみ残り時）| ✅ |
+| Activation Dry Run + Plan + Rollback（`activation.py` + CLI）| ✅ deploy 未承認で停止 |
+| Unit Test | ✅ **39件追加 / 合計 339件 全 pass** |
+
+### 現在の状態
+
+| 事業 | Readiness | Activation Dry Run |
+|---|---|---|
+| catering / beauty / ryukyu_hinabe | READY | DEPLOY_APPROVAL_REQUIRED |
+| tachinomiya | ALMOST_READY（写真+token+GBP）| READINESS_BLOCKED |
+| pasta_pasta / z1 | NOT_READY（対象外）| — |
+
+### 次工程（別 PR・別承認）
+
+1. TACHINOMIYA: 画像補充 + token/GBP 確認 → READY
+2. **deploy 承認**（readiness 承認とは別）→ 実 Activation（1事業ずつ）
+3. pasta_pasta / z1 の SSOT 供給

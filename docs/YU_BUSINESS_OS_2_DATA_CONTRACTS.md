@@ -671,3 +671,33 @@ catering / beauty / ryukyu_hinabe: なし
 **CLI exit**（`check_ssot_readiness.py`）: 0=READY/OWNER_APPROVAL のみ / 1=ALMOST_READY・NOT_READY 含む / 2=STOP 含む / 3=INTERNAL_ERROR
 
 **この Gate は監査のみ**: deploy / Scheduler / Cloud Run / 投稿 / 送信 / 書込は一切しない。
+
+### 12.7 Approval Ledger / Activation 契約（Phase B2-6）
+
+**Approval Ledger**（`configs/governance/readiness_approvals.yaml`）
+```yaml
+- business_id / approval_type: READINESS / approved: bool /
+  approved_by: OWNER / approval_scope: SSOT_PRODUCTION_READINESS /
+  deploy_approval: false / scheduler_approval: false / external_send_approval: false /
+  approved_at / source / expires_at / prohibited_actions[] / notes
+```
+※ Secret/token/個人情報なし。deploy/scheduler/send 承認は B2-6 で false 強制（loader が検査）。
+
+**Readiness 追加判定**: `PHOTO_PENDING_READY`（token+GBP 確認済み・写真のみ残り）
+
+**TACHINOMIYA 監査**（`tachinomiya_audit.py`・read-only・値は読まない）
+```
+threads_token: env NAME 宣言確認 → 期限/有効性は MANUAL_CHECK_REQUIRED
+gbp:           auth ファイル存在確認 → 有効性は MANUAL_CHECK_REQUIRED
+image:         PHOTO_PENDING（interior 1→5 / drink 3→8 / exterior 4→10）
+```
+
+**Activation Dry Run**（`activation.py`）
+```
+decision: DRY_RUN_GO | READINESS_BLOCKED | OWNER_APPROVAL_REQUIRED |
+          DEPLOY_APPROVAL_REQUIRED | STOP | INTERNAL_ERROR
+plan:     current/desired state・env NAME 変更・cloud_run_service・
+          deploy/rollback command 候補（**実行しない**）・smoke_test・stop_conditions
+```
+**CLI exit**（`dry_run_ssot_activation.py`）: 0=DRY_RUN_GO / 1=READINESS_BLOCKED /
+2=OWNER_APPROVAL_REQUIRED / 3=DEPLOY_APPROVAL_REQUIRED / 4=STOP / 5=INTERNAL_ERROR

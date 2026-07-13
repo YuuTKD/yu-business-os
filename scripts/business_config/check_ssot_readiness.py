@@ -47,8 +47,8 @@ def _print(res):
 def _exit_for(decisions) -> int:
     if any(d in ("STOP", "INTERNAL_ERROR") for d in decisions):
         return 2 if "STOP" in decisions else 3
-    if any(d in ("ALMOST_READY", "NOT_READY") for d in decisions):
-        return 1
+    if any(d in ("ALMOST_READY", "NOT_READY", "PHOTO_PENDING_READY") for d in decisions):
+        return 1  # not fully ready (photos / ops pending)
     return 0  # only READY / OWNER_APPROVAL_REQUIRED
 
 
@@ -60,8 +60,9 @@ def main(argv=None) -> int:
     parser.add_argument("--repo-root", default=None)
     args = parser.parse_args(argv)
 
-    owner = args.owner_approved or (
-        os.getenv("YU_OWNER_APPROVED", "").strip().lower() == "true")
+    # None → let the readiness approval ledger decide; True → simulate approval.
+    owner = True if (args.owner_approved or
+                     os.getenv("YU_OWNER_APPROVED", "").strip().lower() == "true") else None
 
     try:
         from core.business_config.readiness import (
