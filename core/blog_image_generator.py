@@ -198,6 +198,10 @@ _IMAGE_MODELS = [
 
 def _generate_one_image(prompt: str, client: OpenAI) -> tuple[bytes | None, str]:
     """画像を生成し (bytes, url) を返す。gpt-image-1 → dall-e-3 の順で試みる"""
+    from core import content_policy
+    if not content_policy.image_generation_enabled():
+        print("    [image] image_generation=DISABLED (no API call)")
+        return None, "IMAGE_GEN_DISABLED"
     full_prompt = prompt + _IMAGE_SUFFIX
     last_err = None
     for cfg in _IMAGE_MODELS:

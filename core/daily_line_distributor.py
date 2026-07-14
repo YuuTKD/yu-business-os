@@ -87,6 +87,10 @@ def _generate_image_for_line(
     失敗時は ("", "", "") を返す。
     thumbnail_url は JPEG 400px幅サムネイルで LINE previewImageUrl (≤1MB) 要件を満たす。
     """
+    from core import content_policy
+    if not content_policy.image_generation_enabled():
+        print("  [image] image_generation=DISABLED (no API call)")
+        return "", "", ""
     try:
         from core.blog_image_generator import (
             _generate_prompts,
@@ -131,6 +135,10 @@ def _send_line_text(token: str, text: str):
 
 def _send_line_image(token: str, image_url: str, preview_url: str = ""):
     """LINE Messaging API broadcast（画像）"""
+    from core import content_policy
+    if not content_policy.line_image_delivery_enabled():
+        print("  [image] delivery_mode=TEXT_ONLY (LINE image not attached)")
+        return
     if len(token) < 100 or not image_url:
         print(f"  [LINE画像] スキップ: token={len(token)}文字, url={bool(image_url)}")
         return
