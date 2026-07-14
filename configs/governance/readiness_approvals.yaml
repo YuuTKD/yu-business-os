@@ -20,20 +20,34 @@ approvals:
     approved: true
     approved_by: OWNER
     approval_scope: SSOT_PRODUCTION_READINESS
-    deploy_approval: false
+    deploy_approval: true
     scheduler_approval: false
     external_send_approval: false
     approved_at: "2026-07-12"
-    source: owner_directive_phase_b2_6
+    deploy_approved_at: "2026-07-14"
+    source: owner_directive_phase_b2_8a
     expires_at: UNKNOWN
+    # deploy approval is SCOPED to exactly this change (loader requires this block
+    # when deploy_approval is true). It is not a blanket deploy authorization.
+    deploy_scope:
+      service: trees-catering-ai
+      env_var_name: YU_CONFIG_RUNTIME_MODE
+      from_mode: LEGACY_ONLY
+      to_mode: OWNER_APPROVED
+      smoke_test: read_only
+      rollback_mode: LEGACY_ONLY
     prohibited_actions:
-      - deploy
-      - cloud_run_env_change
       - scheduler_change
       - scheduler_on
       - external_send
+      - line_send
+      - gmail_send
+      - gcs_write
+      - sheets_write
       - ssot_only
-    notes: readiness only; deploy is a separate approval
+      - legacy_delete
+      - other_business_deploy
+    notes: deploy approved for trees-catering-ai only (runtime mode env change); scheduler/posting/send/other-business deploy remain prohibited
 
   - business_id: beauty
     approval_type: READINESS

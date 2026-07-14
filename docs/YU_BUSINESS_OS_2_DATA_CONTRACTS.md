@@ -681,7 +681,13 @@ catering / beauty / ryukyu_hinabe: なし
   deploy_approval: false / scheduler_approval: false / external_send_approval: false /
   approved_at / source / expires_at / prohibited_actions[] / notes
 ```
-※ Secret/token/個人情報なし。deploy/scheduler/send 承認は B2-6 で false 強制（loader が検査）。
+※ Secret/token/個人情報なし。scheduler/external-send 承認は false 強制（loader が検査）。
+`deploy_approval: true` は**スコープ必須**（`deploy_scope` ブロックが無ければ loader が issue）:
+```yaml
+deploy_scope: { service, env_var_name, from_mode, to_mode, smoke_test, rollback_mode }
+```
+記録は承認の監査証跡であり **deploy 実行ではない**（実 deploy は人間が gcloud で行う）。
+現状 deploy 承認済み: `catering`（trees-catering-ai の runtime mode env のみ）。
 
 **Readiness 追加判定**: `PHOTO_PENDING_READY`（token+GBP 確認済み・写真のみ残り）
 

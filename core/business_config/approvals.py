@@ -84,11 +84,14 @@ class ApprovalLedger:
             if not bid:
                 self._issues.append("approval missing business_id")
                 continue
-            # Phase B2-6 forbids deploy/scheduler/external-send approval here.
-            for forbidden in ("deploy_approval", "scheduler_approval",
-                              "external_send_approval"):
+            # scheduler / external-send approval remain forbidden in this phase.
+            for forbidden in ("scheduler_approval", "external_send_approval"):
                 if bool(raw.get(forbidden)):
-                    self._issues.append(f"{bid}: {forbidden} must be false in B2-6")
+                    self._issues.append(f"{bid}: {forbidden} must be false")
+            # deploy approval is allowed but must be SCOPED (deploy_scope block),
+            # never a blanket authorization.
+            if bool(raw.get("deploy_approval")) and not isinstance(raw.get("deploy_scope"), dict):
+                self._issues.append(f"{bid}: deploy_approval requires a deploy_scope")
             if raw.get("approved") and raw.get("approval_scope") != READINESS_SCOPE:
                 self._issues.append(f"{bid}: approval_scope must be {READINESS_SCOPE}")
             self._by_id[bid] = raw
@@ -133,6 +136,11 @@ class ApprovalLedger:
     def approval_scope(self, business_id: str) -> Optional[str]:
         rec = self.get(business_id)
         return rec.get("approval_scope") if rec else None
+
+    def deploy_scope(self, business_id: str) -> Optional[Dict[str, Any]]:
+        rec = self.get(business_id)
+        scope = rec.get("deploy_scope") if rec else None
+        return scope if isinstance(scope, dict) else None
 
 
 def load_default() -> ApprovalLedger:

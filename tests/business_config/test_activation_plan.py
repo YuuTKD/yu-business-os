@@ -37,10 +37,13 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(p["project_id"], PROJECT_ID)
             self.assertEqual(p["region"], REGION)
 
-    def test_04_05_06_approvals_false(self):
+    def test_04_05_06_approvals(self):
+        # catering deploy approved (scoped); scheduler/external always false
+        self.assertTrue(build_production_plan("catering")["deploy_approved"])
+        for b in ("beauty", "ryukyu_hinabe"):
+            self.assertFalse(build_production_plan(b)["deploy_approved"], b)
         for b in READY_THREE:
             p = build_production_plan(b)
-            self.assertFalse(p["deploy_approved"])
             self.assertFalse(p["scheduler_approved"])
             self.assertFalse(p["external_send_approved"])
 
@@ -85,16 +88,17 @@ class PlanTest(unittest.TestCase):
         self.assertTrue(bt["rollback"]["all_rollback_ready"])
         self.assertIn("LEGACY_ONLY", bt["results"]["catering"]["rollback_steps"][0])
 
-    def test_14_readiness_vs_deploy_separated(self):
+    def test_14_readiness_and_deploy_fields_separate(self):
         p = build_production_plan("catering")
         self.assertEqual(p["readiness"], "READY")
-        self.assertFalse(p["deploy_approved"])          # readiness != deploy approval
+        self.assertTrue(p["deploy_approved"])           # deploy now approved (scoped)
         self.assertEqual(p["decision"], "PREPARED")
 
-    def test_15_deploy_approval_cannot_be_true(self):
-        # ledger never grants deploy approval in this phase
-        for b in READY_THREE:
-            self.assertFalse(build_production_plan(b)["deploy_approved"])
+    def test_15_deploy_approval_only_catering(self):
+        # catering deploy approved (scoped); beauty / ryukyu_hinabe not
+        self.assertTrue(build_production_plan("catering")["deploy_approved"])
+        for b in ("beauty", "ryukyu_hinabe"):
+            self.assertFalse(build_production_plan(b)["deploy_approved"], b)
 
     def test_batch_prepared(self):
         self.assertEqual(build_batch(list(READY_THREE))["batch_decision"], "PREPARED")

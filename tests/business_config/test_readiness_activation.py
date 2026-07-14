@@ -60,8 +60,11 @@ class ApprovalLedgerTest(unittest.TestCase):
         for b in APPROVED:
             self.assertTrue(self.led.is_readiness_approved(b), b)
 
-    def test_04_deploy_approval_false(self):
-        for b in APPROVED:
+    def test_04_deploy_approval_scoped(self):
+        # catering deploy approved (scoped); beauty / ryukyu_hinabe not
+        self.assertTrue(self.led.is_deploy_approved("catering"))
+        self.assertTrue(bool(self.led.deploy_scope("catering")))
+        for b in ("beauty", "ryukyu_hinabe"):
             self.assertFalse(self.led.is_deploy_approved(b), b)
 
     def test_05_scheduler_approval_false(self):
@@ -146,11 +149,14 @@ class TachinomiyaAuditTest(unittest.TestCase):
 
 
 class ActivationDryRunTest(unittest.TestCase):
-    def test_24_25_26_batch_no_deploy(self):
+    def test_24_25_26_batch_deploy_scoped(self):
+        # catering deploy approved (dry run may be DRY_RUN_GO — still no real
+        # deploy executed); the other businesses are not deploy-approved.
         bt = dry_run_batch(list(SSOT_ENABLED))
-        for bid in SSOT_ENABLED:
+        self.assertEqual(bt["results"]["catering"]["deploy_approval"], "APPROVED")
+        for bid in ("beauty", "ryukyu_hinabe", "tachinomiya"):
             self.assertEqual(bt["results"][bid]["deploy_approval"], "NOT_APPROVED")
-            self.assertNotEqual(bt["results"][bid]["decision"], "DRY_RUN_GO")  # no real activation
+            self.assertNotEqual(bt["results"][bid]["decision"], "DRY_RUN_GO")
 
     def test_27_28_29_supply_fallback_rollback(self):
         r = dry_run_activation("catering")
@@ -171,12 +177,14 @@ class ActivationDryRunTest(unittest.TestCase):
         self.assertEqual(dry_run_activation("tachinomiya")["decision"], "READINESS_BLOCKED")
 
     def test_33_deploy_command_not_executed(self):
+        # even with deploy approved, the dry run never executes a command
         r = dry_run_activation("catering")
-        self.assertEqual(r["decision"], "DEPLOY_APPROVAL_REQUIRED")  # not DRY_RUN_GO
+        self.assertEqual(r["decision"], "DRY_RUN_GO")
         self.assertIn("NOT EXECUTED", r["plan"]["deploy_command_candidate"])
 
-    def test_ready_business_deploy_approval_required(self):
-        for b in APPROVED:
+    def test_ready_business_deploy_states(self):
+        self.assertEqual(dry_run_activation("catering")["decision"], "DRY_RUN_GO")
+        for b in ("beauty", "ryukyu_hinabe"):
             self.assertEqual(dry_run_activation(b)["decision"], "DEPLOY_APPROVAL_REQUIRED")
 
 
@@ -237,9 +245,10 @@ class CliTest(unittest.TestCase):
         self.assertEqual(self._cli("dry_run_ssot_activation.py").main(
             ["--batch", "ssot-enabled"]), 1)
 
-    def test_activation_cli_catering_rc3(self):
+    def test_activation_cli_catering_rc0(self):
+        # catering deploy approved → DRY_RUN_GO (exit 0)
         self.assertEqual(self._cli("dry_run_ssot_activation.py").main(
-            ["--business", "catering"]), 3)
+            ["--business", "catering"]), 0)
 
     def test_readiness_cli_catering_ready_rc0(self):
         self.assertEqual(self._cli("check_ssot_readiness.py").main(
