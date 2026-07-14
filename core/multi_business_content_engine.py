@@ -159,6 +159,10 @@ def _fetch_real_image(
     IMAGE_LIBRARY から実写画像を選定 → Drive DL → GCS UP → (original_url, thumb_url)
     実写画像なし → None
     """
+    from core import content_policy
+    if not content_policy.line_image_delivery_enabled():
+        # 画像配信停止: 実写画像の取得・GCS書込も行わない（TEXT_ONLY）
+        return None
     from core.image_manager import select_real_image, fetch_drive_image_bytes, track_usage
 
     selected = select_real_image(post_content, lib_key, platform="line", creds_path=creds_path)
@@ -310,6 +314,10 @@ def _build_image_prompt(title: str, body: str, image_style: str) -> str:
 
 def _generate_image_bytes(prompt: str, client: OpenAI) -> bytes | None:
     """gpt-image-1 → dall-e-3 の順で試みる。最大3回リトライ。"""
+    from core import content_policy
+    if not content_policy.image_generation_enabled():
+        print("    [image] image_generation=DISABLED (no API call, no retry)")
+        return None
     for attempt in range(3):
         for cfg in _IMAGE_MODEL_CONFIGS:
             try:
@@ -408,6 +416,10 @@ def _send_line_text(token: str, text: str) -> bool:
 
 
 def _send_line_image(token: str, original_url: str, preview_url: str) -> bool:
+    from core import content_policy
+    if not content_policy.line_image_delivery_enabled():
+        print("    [image] delivery_mode=TEXT_ONLY (LINE image not attached)")
+        return False
     if len(token) < 100 or not original_url:
         return False
     try:

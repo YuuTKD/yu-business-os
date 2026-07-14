@@ -1,0 +1,23 @@
+# YU Business OS — Content Policy (Single Source of Truth)
+#
+# Controls AI image generation and LINE image delivery across ALL businesses.
+# Loaded by core/content_policy.py. Fail-closed: on any load/parse error the
+# image flags are treated as false (off), while text stays on.
+#
+# CURRENT STATE (owner directive 2026-07-14):
+#   * AI image generation: DISABLED for all businesses
+#   * LINE image delivery : DISABLED for all businesses
+#   * post-text generation + LINE text delivery: continue as before
+#
+# Re-enabling image generation requires an explicit OWNER approval (change this
+# file to true AND set the corresponding env var to "true"). Per-business
+# overrides may only make it MORE restrictive; they can never enable it.
+
+content_policy:
+  text_generation_enabled: true
+  image_generation_enabled: false
+  line_text_delivery_enabled: true
+  line_image_delivery_enabled: false
+
+# Per-business overrides (may only set flags to false; true is ignored).
+businesses: {}
