@@ -132,9 +132,14 @@ def build_production_plan(business_id: str, repo_root=None, registry=None) -> Di
             # Everything prepared up to the deploy gate. Deploy is the next,
             # separate owner approval (not granted here).
             plan["decision"] = "PREPARED"
-            plan["next_action"] = ("deploy 直前状態まで準備完了。実 deploy は別途 owner 承認"
-                                   "（本 phase 未付与）")
-            plan["warnings"].append("deploy_approval_pending (separate approval)")
+            if plan["deploy_approved"]:
+                plan["next_action"] = ("deploy 直前状態まで準備完了。deploy 承認済み"
+                                       "（実 deploy は人間が gcloud で実行）")
+                plan["warnings"].append("deploy_approved (execute via gcloud by human)")
+            else:
+                plan["next_action"] = ("deploy 直前状態まで準備完了。実 deploy は別途 owner 承認"
+                                       "（未付与）")
+                plan["warnings"].append("deploy_approval_pending (separate approval)")
         return plan
     except Exception as exc:  # fail closed
         plan["decision"] = "INTERNAL_ERROR"

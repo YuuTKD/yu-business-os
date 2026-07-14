@@ -2,6 +2,57 @@
 
 ---
 
+## Phase B2-8A 完了報告 — Catering deploy 承認の監査台帳記録
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/yu-business-os-2-catering-deploy-approval |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-14 |
+| **リスク分類** | High（`configs/governance/**` `core/business_config/**` 変更）|
+| **対象** | `catering`（trees-catering-ai）のみ |
+| **対象外・不変** | beauty / ryukyu_hinabe / tachinomiya / pasta_pasta / z1 |
+
+### 変更内容（deploy 実行ではなく「承認の記録」のみ）
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `configs/governance/readiness_approvals.yaml` | MODIFIED | catering `deploy_approval: true` + `deploy_scope`（service/env/from-to mode/smoke/rollback）|
+| `core/business_config/approvals.py` | MODIFIED | deploy 承認を許可（**scope 必須**）・scheduler/external-send は false 強制維持・`deploy_scope()` 追加 |
+| `core/business_config/production_plan.py` | MODIFIED | deploy 承認済み時の warning/next_action を条件分岐 |
+| `tests/business_config/test_readiness_activation.py` / `test_activation_plan.py` | MODIFIED | catering=承認・beauty/hinabe=未承認へ 8 件更新 |
+| `docs/YU_BUSINESS_OS_2_DATA_CONTRACTS.md` | MODIFIED | deploy_scope 契約を追記 |
+
+### 承認スコープ（限定）
+
+- service: `trees-catering-ai` のみ / env: `YU_CONFIG_RUNTIME_MODE`（`LEGACY_ONLY → OWNER_APPROVED`）
+- deploy 後 read-only smoke / 異常時 `LEGACY_ONLY` rollback
+- **依然禁止**: Scheduler / 投稿 / LINE・Gmail / GCS・Sheets / SSOT_ONLY / Legacy 削除 / 他事業 deploy
+
+### 影響
+
+- catering: Activation Dry Run → **DRY_RUN_GO**（承認済み・ただし**実 deploy は未実行**）
+- beauty / ryukyu_hinabe: deploy 未承認のまま（DEPLOY_APPROVAL_REQUIRED）
+- **記録は監査証跡であり deploy 実行ではない**（実 deploy は人間が gcloud で実施）
+
+### テスト実績
+
+- `python3 -m unittest discover -s tests` → **Ran 371 tests OK**（8件を承認反映へ更新）
+- Readiness（catering READY）/ Registry / Business Config CLI GO / Secret scan CLEAN / bash -n OK / ledger issues なし
+
+### 既存構成への影響チェック
+
+- [x] deploy / env 変更 / Scheduler / 投稿 / 送信 / 書込：**実行なし**（記録のみ）
+- [x] beauty / ryukyu_hinabe / tachinomiya / pasta_pasta / z1：**deploy 未承認・不変**
+- [x] Secret / credentials / token：**非表示・非読取**
+- [x] `scripts/acquisition` / Tree Beauty 有効化 / `daily_post_limit`：**未変更**
+
+### 人間承認が必要な項目
+
+- Merge 実行（High → ゆうさん承認）/ 実 deploy（人間が gcloud で・別作業）
+
+---
+
 ## Phase B2-7 完了報告 — Production Activation Preparation
 
 | 項目 | 内容 |

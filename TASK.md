@@ -56,12 +56,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-014（タスクタイトル）
+## TASK-015（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-014 YU Business OS 2.0 Phase B2-8A — Catering deploy 承認の監査台帳記録
+ステータス: DONE（2026-07-14 / feat/yu-business-os-2-catering-deploy-approval）
+概要:
+  catering の deploy 承認を readiness_approvals.yaml に scoped で記録（deploy 実行
+  ではなく承認の記録）。beauty/hinabe/tachinomiya は deploy 未承認・不変。
+完了条件:
+  - [x] catering deploy_approval: true + deploy_scope（service/env/mode/smoke/rollback）
+  - [x] approvals.py: deploy 承認は scope 必須・scheduler/send は false 強制維持
+  - [x] production_plan: 承認済み時の warning 条件分岐
+  - [x] テスト 8件を承認反映へ更新 / 合計 371件 全 pass
+  - [x] catering 以外 deploy 未承認を維持
+スコープ（承認記録のみ・deploy 実行なし）:
+  - configs/governance/readiness_approvals.yaml · core/business_config/{approvals,production_plan}.py
+  - tests/business_config/ · docs/YU_BUSINESS_OS_2_DATA_CONTRACTS.md · REPORT.md · TASK.md
 
 ## TASK-013 YU Business OS 2.0 Phase B2-7 — Production Activation Preparation
 ステータス: DONE（2026-07-12 / feat/yu-business-os-2-production-activation-prep）
