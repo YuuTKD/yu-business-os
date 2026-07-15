@@ -896,3 +896,13 @@ production   : gcloud/deploy/Scheduler/Secret/GCS/LINE 不使用
 
 `requirements.lock` schema: `pip freeze --exclude-editable | sort` の完全固定（`名前==版`）。
 正本は `requirements.txt`。更新は別 PR で lock を再生成（CI 内自動生成は禁止）。
+
+## Contract 13: Change Classification（Phase R2 実装済み・2026-07-15）
+
+`diff_risk.classify_change(paths, added_text="", registry=None) -> dict`。出力キー:
+`risk_level / categories / affected_businesses / affected_services / selected_test_groups /
+full_test_required / staging_required / production_approval_required / rollback_required /
+blocked / reasons`。`selected_test_groups` は実在 dir（agent/business_config/content/
+governance/registry）または sentinel `FULL` のみ。CLI は加えて `run_scope`(FULL|NONE|GROUPS)
+を GITHUB_OUTPUT へ emit（fail-closed: unknown/blocked/空 diff → FULL）。Secret 値は出さない
+（scan は boolean のみ）。
