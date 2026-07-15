@@ -478,3 +478,77 @@ Batch 2 = **`ryukyu_hinabe`（琉球火鍋）のみ**。`pasta_pasta` / `z1` は
 | 対象外 | `pasta_pasta` / `z1` は常に LEGACY（コード・設定・テスト・docs 変更なし）|
 
 rollback: `YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY`（既定）に戻すだけ。次候補: `pasta_pasta` / `z1`。
+
+---
+
+## Phase R: Release & Operations OS 移行マップ（設計 2026-07-15）
+
+### 再利用する既存資産（変更せず接続）
+
+| 既存資産 | Release OS での役割 |
+|---|---|
+| `core/governance/diff_risk.py` | Change Classification の**唯一の正本**（関数追加のみ） |
+| `scripts/agent/governance_gate.py` | pr-validation.yml が呼ぶ PR ゲート（そのまま） |
+| `scripts/agent/pr_auto_flow.sh` / `safe_auto_merge_pr.sh` | PR レビュー経路（そのまま。release 経路とは分離） |
+| `configs/businesses/registry.yaml` | business / service / endpoint / deploy_order の SSOT（release ブロック追記） |
+| `configs/governance/policies.yaml` | deployment policy の正本（release ポリシー追記） |
+| `configs/governance/readiness_approvals.yaml` | readiness 承認の正本（deploy 承認とは分離のまま） |
+| `configs/content_policy.yaml` + `core/content_policy.py` | smoke の image/LINE フラグ検証対象 |
+| `Dockerfile`（python:3.11-slim） | CI Python バージョンの基準・Cloud Build のビルド定義 |
+| `requirements.txt` | 依存の正本（lock を**生成**する。手書き二重管理しない） |
+| `tests/`（agent/business_config/content/governance/registry） | Test Selection の単位 |
+| `core/entrypoint.py` の `/health` `/status` | smoke endpoint（R3 で status に release 情報を追加） |
+| OWNER_ONLY LINE 基盤 | 承認通知・完了報告チャネル |
+| TACHINOMIYA readiness gate / activation dry run | deploy 前 readiness 判定にそのまま接続 |
+
+### 新規追加（追加のみ・既存無変更）
+
+| 追加物 | 内容 |
+|---|---|
+| `.github/workflows/pr-validation.yml` | PR: classification + selected tests + governance gate |
+| `.github/workflows/release.yml` | main push: test→build→staging→承認→progressive deploy→ledger→通知 |
+| `.github/workflows/rollback.yml` | 緊急手動 rollback（workflow_dispatch） |
+| `.github/actions/deploy-service/`（composite） | snapshot→promote→smoke→rollback-on-fail |
+| `scripts/release/classify_change.py` | diff_risk.py の薄い CLI ラッパ |
+| `scripts/release/smoke_test.py` | endpoint registry 準拠の read-only smoke |
+| `requirements.lock` | pip-compile 生成物 |
+| GCP: WIF pool/provider・SA 3種・`gs://yu-release-ledger` | 人間が1回だけ setup（runbook 提供） |
+| GitHub: Environment `production`（reviewer=ゆうさん） | 人間が1回だけ setup |
+
+### 変更禁止対象（Release OS が触れないもの）
+
+- 既存 Core / Agents / Skills / Knowledge / QA（削除・移動なし）
+- Cloud Scheduler（作成・変更・ON/OFF 一切なし。release.yml は Scheduler API を呼ばない）
+- Secret / token / credentials（コード・Workflow への直書き禁止。SM/WIF のみ）
+- `scripts/acquisition/**`（frozen のまま）
+- pasta_pasta / z1 / yu-holdings-ai（deploy allowlist 外）
+- 既存 PR フロー（pr_auto_flow.sh）— Release OS は Merge **後**を担当し役割が重ならない
+
+### 段階移行と rollback map
+
+| 段階 | 導入物 | 戻し方 |
+|---|---|---|
+| R1 | CI + pr-validation.yml | workflow ファイル削除（本番影響ゼロ） |
+| R2 | classification + test selection | 同上（PR ゲートは governance_gate 継続） |
+| R3 | release.yml（deploy は dry-run モード） | `RELEASE_MODE=dry_run` へ戻す（repo variable） |
+| R4 | Ledger | 書込み停止のみ（読み手なし） |
+| R5 | Environment 承認 + LINE 通知 | Environment の reviewer 解除で従来手動へ |
+| R6-7 | 実 deploy（canary→3事業） | rollback.yml + 従来の手動 gcloud 手順（runbook 維持） |
+| R8 | resume/lock/emergency | 個別 feature flag で無効化 |
+
+**移行中の並行運用**: R6 で catering canary が安定するまで、従来の手動 deploy 手順
+（`docs/pr20_production_rollout_runbook.md` 相当）を廃止しない。Release OS が2回連続で
+無事故 deploy したら手動手順を「緊急時のみ」に降格。
+
+### Phase R1 実装結果（2026-07-15）
+
+| 追加物 | 状態 |
+|---|---|
+| `.github/workflows/pr-validation.yml` | 新規作成（既存 workflow 0本＝重複・Required Check 衝突なし） |
+| `requirements.lock` | 新規作成（`requirements.txt` を正本に py3.11 で freeze・71 pkg・== 固定） |
+
+**既存資産の無変更を確認**: Core / Agents / Skills / Knowledge / Governance / Registry /
+`governance_gate.py` / `pr_auto_flow.sh` / `safe_auto_merge_pr.sh` / 既存テスト / CLAUDE.md /
+Cloud Run いずれも変更・削除・移動なし。`requirements.txt` も無変更（lock は追加のみ）。
+**rollback**: PR を merge しない / branch 削除 / workflow revert で完結（本番非接触のため
+Cloud Run rollback 不要）。R2 以降は未着手。

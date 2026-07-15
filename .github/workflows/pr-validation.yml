@@ -1,0 +1,113 @@
+name: PR Validation
+
+# YU Release & Operations OS — Phase R1: Fixed CI Environment + PR Validation.
+# 目的: ローカル Mac の Bash/Python/依存/gcloud 環境差を排除し、PR 上で再現可能に
+#       「構文/import → Governance Gate → 既存テスト」を1回だけ実行する。
+# 本番非接触: deploy / gcloud / Scheduler / Secret / GCS / LINE には一切触れない。
+# 成功判定は exit code のみ（テスト件数の文字列パースはしない）。
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+# fork PR にも Secret を渡さない最小権限。id-token / deployments は付与しない。
+permissions:
+  contents: read
+  pull-requests: read
+
+# 同一 PR で新しい commit が来たら古い実行を止める（無駄実行と二重起動防止）。
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Fixed-env validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # untrusted な PR title/body は shell に渡さない。base ref のみを env 経由で使う。
+      BASE_REF: ${{ github.base_ref || 'main' }}
+    steps:
+      - name: Checkout (full history for governance diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base ref for governance diff
+        run: |
+          git fetch --no-tags --depth=200 origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+      - name: Setup Python 3.11 (matches production Dockerfile)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install from fixed lock (no CI-time lock generation)
+        run: |
+          python -m pip install --upgrade pip
+          # requirements.lock は committed な完全 freeze。--no-deps で lock を唯一の真実にする。
+          pip install --no-deps -r requirements.lock
+
+      - name: Syntax and import validation
+        run: |
+          python -m compileall -q core configs scripts tests
+          python -c "import core.content_policy, core.governance.diff_risk, core.governance.validator"
+
+      - name: Governance Gate (exit-code judged)
+        run: |
+          set +e
+          python scripts/agent/governance_gate.py --base "origin/${BASE_REF}" --head HEAD
+          rc=$?
+          set -e
+          echo "governance_gate_exit=${rc}"
+          {
+            echo "### Governance Gate"
+            echo ""
+            echo "exit code: \`${rc}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "${rc}" in
+            0)
+              echo "GATE: GO"
+              echo "result: **GO**" >> "$GITHUB_STEP_SUMMARY" ;;
+            20)
+              echo "GATE: OWNER_APPROVAL_REQUIRED (HIGH risk — 人間承認は merge 時。コード欠陥ではない)"
+              echo "result: **OWNER_APPROVAL_REQUIRED** (HIGH risk・merge 時に人間承認)" >> "$GITHUB_STEP_SUMMARY" ;;
+            10)
+              echo "GATE: FIX required"
+              echo "result: **FIX required** — 修正が必要" >> "$GITHUB_STEP_SUMMARY"
+              exit 1 ;;
+            30)
+              echo "GATE: STOP (危険検知)"
+              echo "result: **STOP** — 危険を検知" >> "$GITHUB_STEP_SUMMARY"
+              exit 1 ;;
+            40)
+              echo "GATE: INTERNAL_ERROR (fail-closed)"
+              echo "result: **INTERNAL_ERROR** — 判定不能で停止" >> "$GITHUB_STEP_SUMMARY"
+              exit 1 ;;
+            *)
+              echo "GATE: unknown exit ${rc}"
+              echo "result: **UNKNOWN(${rc})**" >> "$GITHUB_STEP_SUMMARY"
+              exit 1 ;;
+          esac
+
+      - name: Unit tests (stdlib unittest, exit-code judged)
+        run: |
+          # 成否は exit code のみ。件数(388)は参考表示で、成功条件にはしない。
+          python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### PR Validation"
+            echo ""
+            echo "- runner: ubuntu-24.04"
+            echo "- python: 3.11 (production Dockerfile と一致)"
+            echo "- deps: requirements.lock からのみ install (--no-deps)"
+            echo "- tests: \`python -m unittest discover -s tests -p 'test_*.py'\` (exit-code 判定)"
+            echo "- production access: なし (deploy/gcloud/Scheduler/Secret/GCS/LINE 不使用)"
+          } >> "$GITHUB_STEP_SUMMARY"

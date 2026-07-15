@@ -431,3 +431,70 @@ Unit Test **371件 全 pass**。
 **ゆうさんが判断すること**
 1. この Activation 準備 PR を Merge するか（HIGH → 人間承認必須・本番操作なし）
 2. TACHINOMIYA の写真補充・token/GBP 手動確認 / **deploy 承認**（別 PR）へ進むか
+
+---
+
+## Release & Operations OS 設計完了報告（2026-07-15）
+
+### 何が問題だったか
+
+PR #20（全事業の画像生成停止・LINE 文章配信継続）は、コード自体は数時間で完成した
+のに、**本番反映に1日以上**かかりました。原因はコードではなく反映経路です:
+Mac の Bash/Python 環境差・requirements 不足・gcloud 未導入と認証切れ・同じ 388 テスト
+の繰り返し・長いスクリプト貼り付け・Revision の手動確認・timeout なしの待機。
+
+### 最終構成（1行で）
+
+**「PR Merge → 自動テスト → 自動 Staging → LINE に承認通知 → ゆうさんが YES 1タップ →
+1事業ずつ自動反映 → 異常なら自動で元に戻す → 記録と完了報告が届く」**
+
+- 実行主体は GitHub Actions（Claude Code の本番 deploy 禁止は維持したまま解決）
+- Staging は本番サービスへの「客に見えない 0% リビジョン」= 追加費用ゼロで本番と同一環境
+- 承認は GitHub Environment が正本（YES はLINE 内リンクの1タップ・1回限り・使い回し不可）
+- 記録は GCS の Deployment Ledger（改ざん耐性あり・監査 100%）
+- pasta_pasta / z1 / 琉球火鍋 / yu-holdings-ai は allowlist 外＝構造的に誤 deploy 不可能
+
+### 金額・時間インパクト
+
+| 項目 | Before（PR #20 実績） | After（目標） |
+|---|---|---|
+| Merge→本番反映 | 1日以上 | **15分以内** |
+| ゆうさんの操作 | 貼り付け・実行・確認 多数 | **YES 1タップ** |
+| 月額追加コスト | — | **約¥100 未満**（Actions 無料枠内 / GCS 数円 / AR 数十円） |
+| 環境差事故・重複テスト・手動確認 | 頻発 | 0（構造的に排除） |
+
+### 実装優先順位（詳細は ROADMAP Phase R0–R8）
+
+R1 固定CI（0.5日）→ R2 差分テスト（0.5日）→ R3 Staging+Smoke（1日）→ R4 Ledger（0.5日）
+→ R5 YES 1タップ承認（0.5日）→ R6 catering canary → R7 3事業 → R8 復旧強化。
+**合計 約5人日 + ゆうさんの1回だけの設定 約40分**（GCP 30分・GitHub 5分・承認テスト）。
+最短 MVP = R1+R3+R5+R6（約2.5日）で「YES 1回 deploy」が catering で動く。
+
+### 最大リスク と 対策
+
+1. **traffic 昇格の自動化そのもの** → 1事業ずつ / smoke fail-closed / 3分 rollback /
+   canary 期間中は従来手動手順を併存
+2. WIF・Environment の初期設定ミス → 人間作業は runbook 化された40分だけ、R6 前に
+   意図的 rollback 試験で検証
+3. 承認の形骸化（YES 慣れ） → 通知に risk / 変更概要 / smoke 結果を必ず記載、
+   CRITICAL は自動実行しない原則を維持
+
+### ゆうさんの YES / NO 判断項目
+
+1. この Release OS 設計で進めてよいか（**GO なら R1 実装へ**）
+2. 承認の正本を GitHub Environment（LINE はリンク通知）とする方式でよいか
+3. Ledger 保存先を GCS とすることでよいか
+4. R6 canary の第1事業を catering とすることでよいか
+
+### Phase R1 実装完了（2026-07-15・本番非接触）
+
+**入れたもの**: PR を出すたびに、GitHub 上の**固定環境**（Ubuntu + Python 3.11・毎回同じ
+バージョンの依存）で「文法チェック → 安全ゲート → 388テスト」が自動で走る仕組み。
+これで PR #20 の1日遅延を招いた「Mac の Bash/Python 差・依存不足・手元テスト」が構造的に
+消えます。**本番には一切触れません**（deploy も gcloud も Secret も無し）。
+
+**ファイル**: `.github/workflows/pr-validation.yml`（新規1本）+ `requirements.lock`（依存の
+固定表）+ 設計書5冊の追記のみ。既存の仕組みは何も壊していません。
+
+**ゆうさんの操作**: この PR を Merge するか YES/NO の1回だけ（緑チェックを確認 → Merge）。
+**次（R2）はまだ着手していません**。Merge 後に指示があれば進めます。
