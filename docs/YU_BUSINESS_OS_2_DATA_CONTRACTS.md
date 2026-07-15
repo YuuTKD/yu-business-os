@@ -733,3 +733,166 @@ decision: PHOTO_PENDING_READY（token+GBP 確認済・写真のみ）| MANUAL_CH
 0=PREPARED/PHOTO_PENDING_READY / 1=MANUAL_CHECK_REQUIRED / 2=NOT_READY / 3=STOP / 4=INTERNAL_ERROR
 
 **この phase は準備・技術確認のみ**: deploy / env 変更 / Scheduler / 投稿 / 送信は一切実行しない。
+
+---
+
+## Contract 12: Release & Operations OS（Phase R 設計 2026-07-15）
+
+### 12.1 Change Classification schema（正本: `core/governance/diff_risk.py` 出力）
+
+```json
+{
+  "commit_sha": "ca2c730...",
+  "pr_number": 20,
+  "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
+  "categories": ["content_policy", "image_policy"],
+  "businesses": ["catering", "tachinomiya", "beauty"],
+  "services": ["trees-catering-ai", "tachinomiya-ai", "tree-beauty-ai"],
+  "required_tests": ["tests/content", "tests/governance"],
+  "full_suite_forced": false,
+  "deploy_required": true,
+  "approval_required": true,
+  "auto_rollback": true,
+  "prohibited": ["scheduler_change", "external_send"],
+  "blocked_files": [],
+  "secret_suspect": false
+}
+```
+- categories 全集合: docs_only / content_policy / sns_post / image_policy /
+  business_config / ssot / core_runtime / cloud_run_service / scheduler /
+  secret_reference / external_send / acquisition / tree_beauty / financial /
+  deployment_workflow
+- `full_suite_forced=true` 条件: core_runtime / governance / secret_reference /
+  external_send / cross-business / production routing / deployment_workflow
+- businesses→services は `configs/businesses/registry.yaml` から導出（手動表なし）
+
+### 12.2 Test Selection result schema（Actions job summary へ記録・監査用）
+
+```json
+{
+  "commit_sha": "...", "testset_hash": "sha256(...)",
+  "selected": ["tests/content", "tests/governance"],
+  "reason": "categories=[content_policy]",
+  "skipped_already_passed": false,
+  "result": "PASS|FAIL", "ran": 388, "duration_sec": 5
+}
+```
+skip 判定キー = `commit_sha + testset_hash`。PASS 記録なしなら必ず実行。
+
+### 12.3 Approval schema（正本: GitHub Environment `production` / Ledger へ転記）
+
+```json
+{
+  "approval_id": "gha-run-<run_id>-attempt-<n>",
+  "approval_type": "DEPLOY",
+  "pr_number": 20, "commit_sha": "...",
+  "services": ["trees-catering-ai", "tachinomiya-ai", "tree-beauty-ai"],
+  "approved_by": "OWNER", "approved_at": "ISO8601",
+  "expires": "run timeout (30min) で自動失効",
+  "scope_note": "この run のこの SHA 限り。Scheduler / external send / readiness は別承認"
+}
+```
+- readiness 承認は従来どおり `configs/governance/readiness_approvals.yaml`（別正本・混同禁止）
+- YES の再利用・別 PR 流用は構造上不可（run 単位で消費）
+
+### 12.4 Deployment Ledger schema（正本: `gs://yu-release-ledger/<deployment_id>.json`）
+
+```json
+{
+  "deployment_id": "rel-20260715-<run_id>",
+  "pr_number": 20, "commit_sha": "...",
+  "risk_level": "HIGH", "selected_tests": [...], "test_result": "PASS",
+  "approval": { "...": "12.3 を埋め込み" },
+  "services": [
+    {
+      "business": "catering", "service": "trees-catering-ai",
+      "project": "tree-beauty-ai-499303", "region": "asia-northeast1",
+      "staging_revision": "trees-catering-ai-00061-xxx",
+      "old_revision": "trees-catering-ai-00060-yyy",
+      "new_revision": "trees-catering-ai-00061-xxx",
+      "traffic": "100%", "health": 200, "status": 200,
+      "result": "ACTIVATED|ROLLED_BACK|FAILED|SKIPPED_ALREADY_ACTIVE|NOT_STARTED",
+      "rollback": { "executed": false, "target": null, "verified": null },
+      "duration_sec": 95, "error_reason": null
+    }
+  ],
+  "final_verdict": "ACTIVATED_ALL_TARGETS|PARTIALLY_ACTIVATED|ROLLED_BACK|FAILED|STOPPED",
+  "heartbeat": [{"step": "smoke:catering", "at": "ISO8601"}],
+  "audit_timestamp": "ISO8601"
+}
+```
+書込みは追記のみ（bucket versioning + retention）。resume 時は同 deployment_id を読み、
+`result=ACTIVATED` のサービスを skip。
+
+### 12.5 Service / Endpoint registry schema（正本: `configs/businesses/registry.yaml` に追記）
+
+```yaml
+# 各 business 配下に追加（例）
+services:
+  cloud_run_service: trees-catering-ai
+  release:
+    deploy_target: true          # allowlist（false/欠落 = deploy 禁止）
+    deploy_order: 1              # catering=1, tachinomiya=2, beauty=3
+    endpoints:                   # smoke が使う実在 endpoint（推測禁止の根拠）
+      health: /health
+      status: /status
+```
+pasta_pasta / z1 / ryukyu_hinabe は `deploy_target: false`（琉球火鍋は明示承認 release のみ
+一時的に true にする PR を別途出す）。
+
+### 12.6 Smoke result schema
+
+```json
+{
+  "service": "trees-catering-ai", "phase": "staging|production",
+  "revision": "...", "ready": true,
+  "health_code": 200, "status_code": 200,
+  "business_identity": "TREE'S CATERING", "identity_match": true,
+  "release_info": { "commit": "...", "image_generation": false,
+                    "delivery_mode": "TEXT_ONLY", "config_source": "LEGACY|SSOT" },
+  "log_findings": [], "secret_exposure": false,
+  "verdict": "GO|ROLLBACK"
+}
+```
+`release_info` は Phase R3 で `/status` に追加する read-only フィールドから取得。
+unknown / 取得不能は **verdict=ROLLBACK**（fail-closed）。
+
+### 12.7 Rollback schema
+
+```json
+{
+  "service": "...", "trigger": "health_not_200|status_abnormal|identity_mismatch|...",
+  "from_revision": "...", "to_revision": "...",
+  "traffic_restored": true, "post_health": 200, "post_status": 200,
+  "env_mode_restored": null,
+  "result": "ROLLED_BACK|ROLLBACK_FAILED_CRITICAL",
+  "followup": "後続 deploy 停止 / CRITICAL 時 production lock + LINE + GitHub Issue"
+}
+```
+
+### 12.8 Notification routing（正本: release.yml 内の1テーブル）
+
+approval_required / started / activated / rollback / failed / timeout /
+credentials_expired / manual_required / final_summary → OWNER_ONLY LINE。
+Secret・token・env 値は載せない。通知失敗は deploy を失敗させない
+（`if: always()` + `continue-on-error`）。不達時 GitHub Issue へフォールバック。
+
+### 12.9 PR Validation contract（Phase R1 実装済み・2026-07-15）
+
+`.github/workflows/pr-validation.yml` の入出力契約:
+
+```
+trigger      : pull_request(base=main) | workflow_dispatch
+runner       : ubuntu-24.04
+python       : 3.11 (production Dockerfile 準拠)
+install      : pip install --no-deps -r requirements.lock   # committed lock のみ
+judge        : exit code のみ（テスト件数の文字列パースは禁止）
+gate_exit    : GO=0 | FIX=10 | OWNER_APPROVAL_REQUIRED=20 | STOP=30 | INTERNAL_ERROR=40
+check_result : pass = {0, 20} / fail = {10, 30, 40, その他}
+               ※ 20 は HIGH PR の正常状態（人間承認は merge 時・コード欠陥ではない）
+permissions  : contents:read + pull-requests:read（id-token/deployments なし）
+production   : gcloud/deploy/Scheduler/Secret/GCS/LINE 不使用
+```
+
+`requirements.lock` schema: `pip freeze --exclude-editable | sort` の完全固定（`名前==版`）。
+正本は `requirements.txt`。更新は別 PR で lock を再生成（CI 内自動生成は禁止）。

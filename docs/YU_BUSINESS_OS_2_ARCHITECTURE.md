@@ -736,3 +736,276 @@ readiness 承認を deploy 承認へ拡大解釈しない。
 
 deploy コマンドは**候補文字列として生成**するだけで**実行しない**。deploy 承認が
 無いため、READY 事業でも `DEPLOY_APPROVAL_REQUIRED` で停止。本番操作ゼロ。
+
+---
+
+# Release & Operations OS（Phase R 設計 2026-07-15）
+
+**目的**: PR Merge 後、ゆうさんの YES 1回で テスト → Staging → 本番反映 → 監視 →
+異常時 Rollback → 記録・報告まで自動完了させる。PR #20（画像生成停止）で1日を要した
+手作業（ローカル環境差・重複テスト・貼り付け・認証待ち・手動 Revision 確認）をゼロ化する。
+
+## R.0 全体フロー（正）
+
+```
+PR Merge (main)
+  └─ release.yml 起動（GitHub Actions / 固定CI環境）
+      ├─ [1] Change Classification（diff_risk.py 拡張・正本1つ）
+      ├─ [2] Test Selection → 実行（同一SHAでPASS済みならskip）
+      ├─ [3] Build 1回（Cloud Build → Artifact Registry, image=SHA）
+      ├─ [4] Staging = 本番サービスへ --no-traffic --tag candidate revision
+      ├─ [5] Smoke Test（tag URL / read-only / endpoint registry 準拠）
+      ├─ [6] LINE 通知「本番反映承認」+ 承認リンク
+      ├─ [7] Owner YES（GitHub Environment 承認 = 正本・1タップ・1回）
+      ├─ [8] Progressive Deploy: catering → tachinomiya → beauty（1サービスずつ traffic昇格）
+      │       各サービス: snapshot → promote → smoke → log check → GO/ROLLBACK
+      ├─ [9] 異常時: 旧Revision traffic100% 自動Rollback → 後続停止 → LINE即通知
+      ├─ [10] Deployment Ledger 記録（GCS・正本1つ）
+      └─ [11] LINE 完了報告
+```
+
+ゆうさんの操作 = **[7] の YES/NO 1回のみ**。貼り付け・ターミナル・Revision確認ゼロ。
+
+## R.1 Component 責任分界
+
+| 主体 | 責任 | してはならないこと |
+|---|---|---|
+| Fable 5 | Architecture / 移行 / リスク設計 | 実装・deploy |
+| Claude Code (Opus) | コード・テスト・Workflow 実装、PR 作成 | 本番 deploy（CLAUDE.md 禁止を維持） |
+| Codex | 独立レビュー（security/governance/rollback/workflow） | 実装・deploy |
+| GitHub Actions | test / build / staging / **production deploy** / smoke / rollback / ledger / 通知 | Scheduler 変更・Secret 直書き・対象外事業 deploy |
+| Cloud Build | コンテナ build（SHA タグ・1回） | deploy 判断 |
+| ゆうさん | YES / NO、CRITICAL時のみ手動 | （通常運用で手作業なし） |
+
+**Claude Code 禁止と実行設計の矛盾解消**: 本番反映の実行主体を GitHub Actions
+（Workload Identity Federation で認証された machine identity）に移す。Claude Code は
+Workflow *コード* を PR で書くだけ。CLAUDE.md の禁止は今後も有効。
+
+## R.2 12機能の設計
+
+### (1) Change Classification Engine — 正本は `core/governance/diff_risk.py`
+
+既存 `classify_paths()`（CRITICAL/HIGH/MEDIUM/LOW・blocked prefix・secret/runaway scan）を
+**唯一の分類正本**として拡張する。新規分類器は作らない。
+
+追加する関数（同ファイル内）:
+- `classify_change(paths) -> ChangeReport`: 既存 risk 判定 + カテゴリ判定
+  （docs_only / content_policy / sns_post / image_policy / business_config / ssot /
+  core_runtime / cloud_run_service / scheduler / secret_reference / external_send /
+  acquisition / tree_beauty / financial / deployment_workflow）
+- 対象事業・対象サービスは `configs/businesses/registry.yaml`（既存 SSOT）の
+  `cloud_run_service` から**導出**する。手動の対応表は持たない。
+
+出力（JSON, Data Contracts 参照）: risk_level / categories / businesses / services /
+required_tests / deploy_required / approval_required / auto_rollback / prohibited。
+CLI: `scripts/release/classify_change.py`（薄いラッパのみ。判定ロジックは diff_risk.py）。
+
+### (2) Test Selection Engine
+
+`tests/` は既にドメイン分割済み（agent / business_config / content / governance / registry）。
+カテゴリ→テストセットの対応は classification 出力に含め、Actions の job summary に記録
+（監査可能）。
+
+| カテゴリ | テストセット |
+|---|---|
+| docs_only | なし（lint のみ） |
+| content_policy / image_policy | tests/content + tests/governance |
+| business_config / ssot | tests/business_config + tests/registry |
+| sns_post | tests/content + 該当 smoke |
+| deployment_workflow | workflow 構文 + dry-run + tests/governance |
+| **core_runtime / governance / secret_reference / external_send / cross-business / production routing** | **Full suite（強制・選択不可）** |
+
+**重複実行防止**: `PASS 記録 = commit SHA + testset hash` を GitHub Actions cache/check-run に
+保存。同一 SHA・同一セットが PASS 済みなら skip（ログに SKIPPED_ALREADY_PASSED を明記）。
+現在 Full suite は約5秒（388件）なので、MVP では「Full suite を SHA ごとに1回だけ」で
+15分 KPI を満たす。選択エンジンはテスト増加に備えた将来レバー。
+
+### (3) Fixed CI Environment — 採用: GitHub Actions + requirements.lock
+
+| 案 | 安全 | 実装コスト | 再現性 | 採点 |
+|---|---|---|---|---|
+| **A. ubuntu-24.04 pin + setup-python 3.11 pin + requirements.lock（pip-compile）** | 高 | 最小 | 高 | **88 — 採用** |
+| B. 全ジョブ Docker（python:3.11-slim） | 高 | 中 | 最高 | 80（起動遅・保守増） |
+| C. uv + uv.lock | 高 | 中 | 高 | 78（新ツール導入は今不要） |
+| D. ローカル Mac 継続 | 低 | 0 | 最低 | 15（不採用・今回の事故原因） |
+
+固定対象: runner `ubuntu-24.04`（bash 5 標準 → declare -A 事故根絶）、Python `3.11.x`
+（Dockerfile と一致）、`requirements.lock`（requirements.txt から pip-compile 生成、正本は
+requirements.txt）、gcloud は `google-github-actions/setup-gcloud@vX` を version pin、
+timeout は全 job に `timeout-minutes` 必須。**ローカル Mac は開発専用**とし、release 経路
+から完全排除。
+
+### (4) Staging — 採用: 案B（本番サービスへ traffic 0% revision）
+
+| 案 | 安全 | 月額 | 忠実度 | 採点 |
+|---|---|---|---|---|
+| A. 専用 Staging service ×3 | 高 | +数百円〜 + env二重管理 | 中（env drift） | 70 |
+| **B. `--no-traffic --tag candidate` revision** | 高 | **0円** | **最高（本番env そのもの）** | **90 — 採用** |
+| C. Preview service | 中 | 低 | 中 | 65 |
+| D. Dry Run のみ | 中 | 0 | 低（実行経路未検証） | 55 |
+
+`gcloud run deploy --image <SHA> --no-traffic --tag candidate` → tag URL
+（`https://candidate---<service>.a.run.app`）に対して read-only smoke。承認後
+`update-traffic --to-latest`。**Staging 段階での LINE 送信・投稿・GCS/Sheets 書込みは
+禁止**（smoke は GET の /health /status のみ。POST endpoint は叩かない。Scheduler は
+tag URL を知らないため誤発火しない）。
+
+### (5) Smoke Test Engine
+
+**endpoint registry を正本管理**: `configs/businesses/registry.yaml` の各事業に
+`endpoints: {health: /health, status: /status}` を追記（推測禁止の根拠データ）。
+検証項目: revision READY / health=200 / status=200 / business identity 一致 /
+config source / image_generation=false / line_text=true / line_image=false /
+startup・import・config load error なし / 5xx なし / Secret 露出なし。
+
+**PR #20 の教訓**: 現在の `/status` は content policy フラグを返さない。Phase R3 で
+`/status` に read-only 追加フィールド（`release: {commit, image_generation,
+delivery_mode, config_source}`）を実装し、smoke がコード保証ではなく**実測**で確認
+できるようにする。ログ検査は `gcloud run services logs read`（Actions の viewer SA）。
+
+### (6) Owner Approval Gateway — 正本: GitHub Environment `production`
+
+| 案 | 安全 | 実装コスト | YES体験 | 採点 |
+|---|---|---|---|---|
+| **A. GitHub Environment required reviewer（LINE は通知+リンク搬送）** | 最高（native 監査・PR/SHA紐付け・再利用不可） | 最小 | LINE内リンク1タップ→Approve | **92 — 採用** |
+| B. LINE 返信 YES → webhook → GitHub API | 中（署名検証・nonce・token 管理を自作） | 高 | LINE 完結 | 70（R8 でオプション追加可） |
+| C. 両方必須（二重承認） | 高 | 高 | 2回操作 | 40（YES 1回原則に反する・不採用） |
+
+**二重化しない。GitHub Environment 承認が唯一の deploy 承認**。要件充足:
+YES 1回限り＝1 deployment に1 approve / 有効期限＝Actions job timeout（30分）で失効 /
+PR・サービス・Revision 紐付け＝deployment payload / 別 PR 流用不可＝run 単位 /
+readiness・deploy・scheduler・external send の承認分離＝既存
+`readiness_approvals.yaml` の分離原則を継承（Environment は deploy approval のみを表す）/
+監査証跡＝GitHub native + Ledger 転記 / LINE 障害時＝GitHub UI/mobile から直接 Approve /
+二重実行防止＝concurrency group + deployment lock（後述）。
+B 案（LINE 返信 YES ブリッジ）は R8 のオプション: 既存 `line-task-webhook` で LINE 署名
+検証 → pending approval の one-time nonce 照合 → Secret Manager 上の GitHub App token で
+REST approve。MVP には含めない。
+
+### (7) Progressive Production Deployment
+
+順序（固定・registry から生成）: **catering → tachinomiya → beauty**（PR #20 実績と同順。
+低リスク→高リスク、Beauty は GBP 依存が大きいため最後）。琉球火鍋は明示承認がある
+release のみ末尾に追加。pasta_pasta / z1 / yu-holdings-ai は対象外リスト（deploy job が
+サービス名を検証し、リスト外は即 STOP）。
+build は SHA image を1回だけ作り、3サービスへ同一 image を `--image` で配布
+（`--source` ×3 の重複 build を排除 → 時間短縮 + バイナリ一致保証）。
+各サービス: snapshot（旧 revision 記録）→ promote → readiness → smoke → log check →
+GO なら次へ。**1件失敗で後続停止**（`needs:` chain + fail-fast）。
+
+### (8) Automatic Rollback
+
+トリガ: revision READY 失敗 / health≠200 / status 異常 / business identity 不一致 /
+config source 異常 / 5xx 増加 / startup・import・config error / Secret 露出疑い /
+image_generation 誤有効化 / LINE 文章経路停止 / LINE 画像経路誤有効化 /
+cross-business impact / timeout / unknown state（**不明は全て Rollback 側に倒す**）。
+動作: `update-traffic --to-revisions <旧>=100` → 必要なら
+`YU_CONFIG_RUNTIME_MODE=LEGACY_ONLY` へ戻す → health/status 再確認 → Ledger 記録 →
+LINE 即通知 → 後続 deploy 停止。
+**Rollback 失敗 = CRITICAL**: production lock を設置（deploy workflow 起動拒否）→
+LINE + GitHub Issue の二重通知 → 人間 runbook（rollback.yml の workflow_dispatch で
+service/revision を指定し再試行）。成功扱いにしない。
+
+### (9) Deployment Ledger — 正本: GCS
+
+| 保存先 | 改ざん耐性 | 検索性 | コスト | 運用負荷 | 採点 |
+|---|---|---|---|---|---|
+| GitHub Artifact | 低（90日で消える） | 低 | 0 | 低 | 40 |
+| **GCS（versioning + retention lock）** | **高** | 中（BQ external table で拡張可） | ~¥10/月 | 低 | **90 — 採用** |
+| Firestore | 中 | 高 | 低 | 中 | 72 |
+| BigQuery | 中 | 最高 | 低 | 中 | 70（今は過剰） |
+| Google Sheets | 低（可変・quota） | 中 | 0 | 中 | 45 |
+| Repo JSON | 中 | 高 | 0 | 高（main push 禁止と衝突） | 50 |
+
+`gs://yu-release-ledger/<deployment_id>.json`（object per deployment、bucket versioning +
+retention policy で追記のみ）。書込みは専用 SA（objectCreator のみ）。GitHub Deployments
+API の記録は副次証跡として自動併存。スキーマは Data Contracts 参照。
+
+### (10) Timeout / Resume / Idempotency
+
+- job 別 `timeout-minutes`: test 10 / build 15 / service deploy 10 / smoke 5 / 全体 45
+- `concurrency: group: production-release`（同時実行キュー化・旧 run の二重起動防止）
+- **deployment lock**: GCS `locks/production.lock` を `ifGenerationMatch=0` で作成
+  （取得失敗＝他 deploy 進行中 → 待機 or 中止）。終了時削除、stuck は TTL で強制解放
+- **resume**: Ledger の deployment_id + service 状態を見て、ACTIVATED 済みサービスを
+  skip して途中再開（同一 deployment_id の再実行は冪等）
+- heartbeat: 各 step の開始/終了を Ledger に逐次記録 → stuck 検知（1日ハングの根絶）
+- retry 上限: deploy 1回・smoke 2回。超過は Rollback へ
+
+### (11) Notification System
+
+既存 OWNER_ONLY LINE 基盤を再利用。種別: approval required / started / service
+activated / rollback executed / failed / timeout / credentials expired / manual
+intervention required / final summary。**Secret・token・URL パラメータの個人情報は
+載せない**。通知 step は `if: always()` + `continue-on-error: true` — 通知失敗が
+deploy 本体を殺さない。通知不達時は GitHub Issue へフォールバック。
+
+### (12) Human Override / Emergency Mode
+
+- `rollback.yml`（workflow_dispatch）: service + 対象 revision を入力し即 rollback
+- production lock: repo variable `PRODUCTION_FROZEN=true` + GCS lock → release.yml が
+  起動時に検査し停止（deploy 停止 / traffic 固定 / service freeze を兼ねる）
+- workflow cancel: GitHub UI 標準
+- **emergency bypass**: 別 Environment `production-emergency`（reviewer 必須・理由入力
+  必須・Ledger に bypass 記録・期限は当該 run 限り＝自動失効）。通常経路の Gate を
+  恒久的に無効化する手段は設けない
+
+## R.3 GitHub Actions 構成（最小3 Workflow + 1 composite）
+
+8本に分けず、保守性優先で集約する:
+
+| Workflow | trigger | 内容 |
+|---|---|---|
+| `pr-validation.yml` | pull_request | classification → selected tests → governance gate（既存 governance_gate.py 呼出し） |
+| `release.yml` | push: main | classify → test(skip済み判定) → build 1回 → staging(no-traffic) → smoke → **environment: production 承認** → progressive deploy（composite 再利用×3） → ledger → notify。rollback ロジック内蔵 |
+| `rollback.yml` | workflow_dispatch | 緊急手動 rollback（service / revision 指定） |
+| composite: `deploy-service` | — | snapshot → promote → smoke → log check → rollback-on-fail（3サービスで再利用） |
+
+## R.4 Secret / 権限設計
+
+- **Workload Identity Federation 採用**（長期 SA key 全面禁止）。GitHub OIDC →
+  該当 repo + environment 限定で impersonation
+- SA 分離: `release-deployer`（run.developer + cloudbuild.builds.editor + AR writer）/
+  `release-verifier`（run.viewer + logging.viewer）/ `release-ledger`
+  （対象 bucket の objectCreator のみ）/ approval listener は R8 まで不要
+- LINE token は Google Secret Manager 参照（Actions は accessor 権限、値は Workflow ログ
+  へ出さない = `add-mask`）
+- GitHub Environments: `production`（required reviewer=ゆうさん / branch=main 限定 /
+  environment secrets）。wait timer は使わない（15分 KPI と矛盾）
+
+## R.5 事業保護（deploy 経路への埋め込み）
+
+- 対象サービス allowlist は registry から生成: catering / tachinomiya / beauty（＋明示
+  承認時のみ ryukyu_hinabe）。**allowlist 外へは deploy job 自体が拒否**
+- TACHINOMIYA: 写真在庫不足を READY 扱いしない（既存 readiness gate をそのまま利用）/
+  Scheduler 無断 ON 禁止（release.yml は Scheduler API を一切呼ばない）
+- Beauty: Tree Beauty 再有効化・Scheduler・投稿の同時変更禁止（classification が
+  tree_beauty カテゴリを検知したら approval_required + CRITICAL 昇格）
+- 琉球火鍋: 別オーナー。GBP 自動化対象外。明示承認なしに対象へ入れない
+- pasta_pasta / z1: Release OS 対象外・Legacy 維持・自動 deploy 禁止（allowlist 外）
+
+## R.6 Phase R1 実装結果（2026-07-15・本番非接触）
+
+固定 CI + PR Validation を実装。監査で判明した事実に基づく実採用:
+
+- **Runner**: `ubuntu-24.04`（bash 5 標準 → declare -A 事故根絶）
+- **Python**: `3.11`（本番 `Dockerfile: python:3.11-slim` と一致）
+- **依存固定**: `requirements.lock`（正本 `requirements.txt` を py3.11 クリーン環境で解決した
+  完全 freeze・71パッケージ）。CI は `pip install --no-deps -r requirements.lock` で lock を
+  唯一の真実として install。**CI 内 lock 生成はしない**。hash 固定は pip-tools/uv 導入が
+  必要なため R1 では見送り（`==` 固定で再現性確保）
+- **テスト**: `python -m unittest discover -s tests -p "test_*.py"`（stdlib unittest・388件）。
+  成否は **exit code のみ**で判定（件数の文字列パースはしない＝失敗#9 の再発防止）。
+  監査により、テストは `gspread`/`requests` を top-level import する core モジュール経由で
+  第三者依存を必要とすることが判明 → CI での依存 install は必須
+- **Governance Gate**: `scripts/agent/governance_gate.py --base origin/<base> --head HEAD`。
+  exit を GO=0 / FIX=10 / OWNER_APPROVAL_REQUIRED=20 / STOP=30 / INTERNAL_ERROR=40 で判定。
+  **20 は HIGH PR の正常状態（人間承認は merge 時）＝CI check は通す**が summary に明記。
+  10/30/40 のみ check を落とす
+- **Workflow**: `.github/workflows/pr-validation.yml` 1本のみ（既存 workflow はゼロ＝重複なし・
+  Required Check 互換問題なし）。trigger= `pull_request(main)` + `workflow_dispatch`。
+  `pull_request_target` は不使用（fork PR に Secret を渡さない）
+- **権限**: `contents: read` + `pull-requests: read` のみ。`id-token` / `deployments` 無し
+- **Timeout/Concurrency**: job `timeout-minutes: 20`、PR 単位 concurrency + cancel-in-progress
+  （1日ハングと二重起動の構造的禁止）
+- **本番非接触**: gcloud / deploy / Scheduler / Secret / GCS / LINE を一切呼ばない
