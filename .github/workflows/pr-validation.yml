@@ -94,10 +94,41 @@ jobs:
               exit 1 ;;
           esac
 
-      - name: Unit tests (stdlib unittest, exit-code judged)
+      - name: Change classification (Test Selection)
+        id: classify
         run: |
-          # 成否は exit code のみ。件数(388)は参考表示で、成功条件にはしない。
-          python -m unittest discover -s tests -p "test_*.py"
+          python scripts/release/classify_change.py \
+            --base "origin/${BASE_REF}" --head HEAD --github-output | tee /tmp/classify.json
+          {
+            echo "### Change Classification (R2)"
+            echo ""
+            echo '```json'
+            cat /tmp/classify.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Unit tests (selected groups, exit-code judged)
+        run: |
+          # 成否は exit code のみ（件数の文字列パースはしない）。
+          # run_scope は fail-closed: FULL / NONE(docs-only) / GROUPS。
+          scope="${{ steps.classify.outputs.run_scope }}"
+          groups="${{ steps.classify.outputs.selected_test_groups }}"
+          echo "run_scope=${scope} selected_groups=${groups}"
+          case "${scope}" in
+            NONE)
+              echo "docs-only change → コードテストをスキップ（lint のみ）" ;;
+            GROUPS)
+              # カンマ区切りの各グループを個別 discover（いずれか失敗で set -e が落とす）
+              IFS=',' read -ra GS <<< "${groups}"
+              for g in "${GS[@]}"; do
+                [ -n "$g" ] || continue
+                echo "== unittest tests/${g} =="
+                python -m unittest discover -s "tests/${g}" -t . -p "test_*.py"
+              done ;;
+            *)
+              # FULL または未知 → 全実行（fail-closed）
+              python -m unittest discover -s tests -p "test_*.py" ;;
+          esac
 
       - name: Summary
         if: always()
