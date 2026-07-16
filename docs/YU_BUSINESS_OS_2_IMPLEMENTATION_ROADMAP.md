@@ -755,6 +755,26 @@ external_send / cross_business / ssot / cloud_run_service / unknown。affected_b
 services は `configs/businesses/registry.yaml`（SSOT）から導出（手動対応表なし）。
 テスト件数の文字列パースは不使用（exit code 判定を継承）。
 
+### Phase R2.5 — Release Infrastructure Bootstrap（**スクリプト実装完了 2026-07-16 / apply は人間**）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | R3–R8 に必要な GCP/GitHub 基盤を安全・冪等・監査可能に構築するツール |
+| 変更ファイル | `scripts/release/bootstrap_release_infra.sh`（新規）/ `tests/release/test_bootstrap_plan.py`（11テスト新規）/ docs |
+| モード | `--plan`(既定・無変更) / `--verify`(read-only) / `--rollback-plan`(表示のみ) / `--apply`(CONFIRM=yes + gcloud + project 一致で人間実行) |
+| 構築対象 | WIF pool + OIDC provider(repo 限定 `assertion.repository=='YuuTKD/yu-business-os'`) / SA 3種(deployer・verifier・ledger) / least-privilege IAM / Artifact Registry(yu-release) / GCS Ledger bucket(yu-release-ledger・UBLA・PAP・versioning・retention・objectCreator=append-only) / repo variables / Environment(MANUAL) |
+| リスク | HIGH（`scripts/release/` = deployment_workflow → FULL テスト・本番非接触） |
+| テスト | 11件（plan 無変更 / apply fail-closed / least-privilege に owner・editor・admin・SA key 無し / append-only / Environment=MANUAL）+ FULL。**合計 424 PASS** |
+| 検証 | 実 gcloud で `--plan`（[APPLY]0件）・`--verify`（全 MISSING＝未作成を確認）・`--apply` ガード（CONFIRM無で STOP）を確認 |
+| 完了条件 | plan で変更0・verify PASS・apply は冪等（人間実行） ✅（コード側） |
+| rollback | merge しない / branch 削除 / revert。infra は `--rollback-plan` の逆順削除（人間） |
+| **MANUAL_STEP** | `--apply` 実行（WIF/SA/AR/bucket 作成）と GitHub Environment 作成はオーナー承認・実行が必要 |
+| ゆうさん判断 | PR Merge + `--plan` 確認 + `CONFIRM=yes --apply` 承認/実行 |
+
+**重要**: 私（Claude Code）は `--apply` を実行しません。GCP インフラ/IAM/Environment 作成は
+`CLAUDE.md` と本 phase 方針（GCP・GitHub 設定変更は人間承認）により**オーナー実行**です。
+`--plan`/`--verify`（read-only）のみ私が実行して検証済み。
+
 ### Phase R3 — release.yml（dry-run モード）+ /status 拡張 + Smoke（推定 1日）
 
 | 項目 | 内容 |

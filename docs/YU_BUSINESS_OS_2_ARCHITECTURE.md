@@ -1018,3 +1018,13 @@ Change Classification + Test Selection を実装。分類正本は `core/governa
 分類 JSON を出力し、`pr-validation.yml` が `run_scope`（FULL / NONE / GROUPS・fail-closed）で
 テストを選択実行。docs-only はテスト0、部分変更は該当グループのみ、危険/unknown/空 diff は
 全実行。合計 413 テスト PASS。本番非接触。
+
+## R.8 Phase R2.5 実装結果（2026-07-16・本番非接触）
+
+Release Infrastructure Bootstrap を実装（`scripts/release/bootstrap_release_infra.sh`）。
+`--plan`(既定・無変更) / `--verify`(read-only) / `--rollback-plan` / `--apply`(CONFIRM=yes +
+gcloud + project 一致で人間実行) の4モード。構築対象＝WIF pool + OIDC provider(repo 限定) +
+SA 3種(least privilege・長期key無し) + Artifact Registry + append-only GCS Ledger bucket +
+repo variables。GitHub Environment は MANUAL_STEP_REQUIRED。実 gcloud で plan(変更0)/verify
+(全 MISSING)/apply ガード(CONFIRM無で STOP)を検証。11テスト + FULL = 424 PASS。`--apply` は
+オーナー実行（Claude Code は実行しない）。
