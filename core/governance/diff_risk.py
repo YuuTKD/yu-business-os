@@ -157,7 +157,7 @@ FULL = "FULL"  # sentinel meaning "run the whole suite"
 #   (category, path-substring/regex predicate)
 # Predicates operate on the normalised path.
 _CATEGORY_PATTERNS = (
-    ("deployment_workflow", r"^\.github/workflows/|^deploy/|^scripts/release/"),
+    ("deployment_workflow", r"^\.github/workflows/|^deploy/|^scripts/release/|^configs/release/"),
     ("acquisition",         r"^scripts/acquisition/"),
     ("tests",               r"^tests/"),
     ("scheduler",           r"scheduler"),

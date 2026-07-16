@@ -35,6 +35,10 @@ LEDGER_BUCKET="yu-release-ledger"
 # 秒数の裸指定（例 34560000）は "Duration must end with time part character" で失敗する。
 RETENTION_PERIOD="400d"          # 監査保持 400 日
 RETENTION_TARGET_SECONDS="34560000"  # 400d を秒換算（describe は秒で返るため比較用）
+# OWNER_ACCEPTED_EXCEPTION (2026-07-16): 実バケットの retention は 34495200s
+# (≈399日18時間, 目標との差 18h) で設定済み。オーナーが運用上許容。retention policy は
+# 変更せず lock もしない。verify はこの値を READY_WITH_EXCEPTION として扱う。
+RETENTION_ACCEPTED_SECONDS="34495200"
 ENVIRONMENT="production"
 
 # Project number is NOT a secret (semi-public id). It is the expected value used
@@ -131,8 +135,10 @@ ensure_retention() {
     gcloud storage buckets update "gs://${LEDGER_BUCKET}" --retention-period="${RETENTION_PERIOD}"
   elif [[ "$cur" == "$RETENTION_TARGET_SECONDS" ]]; then
     printf '  \033[33m[SKIP]\033[0m retention already 400d (%ss)\n' "$cur"
+  elif [[ "$cur" == "$RETENTION_ACCEPTED_SECONDS" ]]; then
+    printf '  \033[33m[SKIP]\033[0m retention %ss = OWNER_ACCEPTED_EXCEPTION (≈399d18h)。変更しません\n' "$cur"
   else
-    echo "STOP: 別の retention が設定済み (${cur}s != ${RETENTION_TARGET_SECONDS}s=400d)。勝手に変更しません。" >&2
+    echo "STOP: 別の retention が設定済み (${cur}s != 400d/accepted)。勝手に変更しません。" >&2
     exit 1
   fi
 }
@@ -280,10 +286,12 @@ do_verify() {
   rp="${rp//[^0-9]/}"
   if [[ "$rp" == "$RETENTION_TARGET_SECONDS" ]]; then
     printf '  \033[32mREADY\033[0m  Retention 400 日 (%ss)\n' "$rp"
+  elif [[ "$rp" == "$RETENTION_ACCEPTED_SECONDS" ]]; then
+    printf '  \033[32mREADY_WITH_EXCEPTION\033[0m Retention %ss ≈399d18h (OWNER_ACCEPTED 2026-07-16)\n' "$rp"
   elif [[ -z "$rp" ]]; then
     printf '  \033[33mMISSING\033[0m Retention 未設定\n'
   else
-    printf '  \033[33mOTHER\033[0m  Retention %ss (!= 400 日 %ss)\n' "$rp" "$RETENTION_TARGET_SECONDS"
+    printf '  \033[33mOTHER\033[0m  Retention %ss (!= 400 日 / accepted)\n' "$rp"
   fi
   echo "  (GitHub Environment '${ENVIRONMENT}' は GitHub 側で確認: Settings → Environments)"
 }
