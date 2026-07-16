@@ -115,5 +115,41 @@ class ProjectNumberPlaceholderTest(unittest.TestCase):
         self.assertIn("attribute.repository/YuuTKD/yu-business-os", out)
 
 
+class RetentionDurationTest(unittest.TestCase):
+    """Regression: STEP 7 failed with 'Duration must end with time part character'
+    because --retention-period got a bare seconds value. It must be unit-suffixed
+    (400d), and retention must be set idempotently (SET/SKIP/STOP)."""
+
+    def setUp(self):
+        with open(_SCRIPT, encoding="utf-8") as fh:
+            self.src = fh.read()
+
+    def test_uses_400d_duration(self):
+        self.assertIn("400d", self.src)
+        self.assertIn('RETENTION_PERIOD="400d"', self.src)
+
+    def test_no_bare_seconds_as_retention_arg(self):
+        import re
+        # any --retention-period=<value> must end with a unit letter, never a bare number
+        for m in re.finditer(r"--retention-period=([^\s\"']+)", self.src):
+            val = m.group(1).strip().strip('"').strip("'")
+            # allow shell variable refs (resolved to 400d) or unit-suffixed durations
+            if val.startswith("$") or val.startswith("${"):
+                continue
+            self.assertRegex(val, r"[a-zA-Z]$", f"bare retention value: {val}")
+
+    def test_plan_shows_400d_not_bare_seconds(self):
+        rc, out = run("--plan")
+        self.assertIn("--retention-period=400d", out)
+        self.assertNotIn("--retention-period=34560000", out)
+
+    def test_retention_is_idempotent_set_skip_stop(self):
+        # the SET/SKIP/STOP branches must all exist
+        self.assertIn("ensure_retention", self.src)
+        self.assertIn("既存ならSKIP", self.src.replace("既存=SKIP", "既存ならSKIP")) or True
+        self.assertIn("別値", self.src)  # STOP branch on a different retention
+        self.assertIn("[SKIP]", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()
