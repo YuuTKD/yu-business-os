@@ -906,3 +906,14 @@ blocked / reasons`。`selected_test_groups` は実在 dir（agent/business_confi
 governance/registry）または sentinel `FULL` のみ。CLI は加えて `run_scope`(FULL|NONE|GROUPS)
 を GITHUB_OUTPUT へ emit（fail-closed: unknown/blocked/空 diff → FULL）。Secret 値は出さない
 （scan は boolean のみ）。
+
+## Contract 14: Release Infra Bootstrap（Phase R2.5 実装済み・2026-07-16）
+
+`scripts/release/bootstrap_release_infra.sh <mode>`。mode ∈ {--plan(既定・無変更),
+--verify(read-only), --rollback-plan(表示のみ), --apply(CONFIRM=yes 必須・人間)}。SSOT 値:
+project=tree-beauty-ai-499303 / region=asia-northeast1 / pool=github-release-pool /
+provider=github-oidc(condition `assertion.repository=='YuuTKD/yu-business-os'`) /
+SA={release-deployer, release-verifier, release-ledger}@project /
+AR=yu-release(docker) / bucket=gs://yu-release-ledger(UBLA+PAP+versioning+retention,
+ledger SA=objectCreator のみ=append-only)。長期 SA key・roles/owner・editor・admin を作らない
+（fail-closed テストで保証）。Secret 値は出力しない。
