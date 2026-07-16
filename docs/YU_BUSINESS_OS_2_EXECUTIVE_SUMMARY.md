@@ -513,3 +513,8 @@ R3 以降に必要な土台（GitHub↔Google Cloud の鍵なし連携=WIF、権
 （何も変えない）」で、実際に作る `--apply` はゆうさんが承認して実行する1コマンド。長期鍵は作らず、
 記録保管庫は「追記のみ（上書き・削除不可）」。私は read-only の確認までを実施済み。
 次にゆうさんに実行いただく `--apply` と GitHub の承認環境作成が、R3 本番検証の前提。
+
+## Phase R3 実装結果 + R2.5 Retention 例外（2026-07-16）
+
+R2.5 retention は OWNER_ACCEPTED_EXCEPTION（34495200s≈399d18h・2026-07-16 承認・policy 変更なし・verify=READY_WITH_EXCEPTION）。
+R3: `release.yml`(workflow_dispatch のみ・WIF・SHA build→AR→`--no-traffic --tag candidate`→read-only smoke・**update-traffic なし**) + `smoke_test.py` + `configs/release/services.yaml`(endpoint SSOT) + `/status` read-only 拡張。対象=trees-catering-ai のみ(allowlist)。457 tests PASS。candidate deploy は未実行(次の owner YES)。本番 traffic/Scheduler/Secret 不変。

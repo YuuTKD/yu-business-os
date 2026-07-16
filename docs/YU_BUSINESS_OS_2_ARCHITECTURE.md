@@ -1028,3 +1028,8 @@ SA 3種(least privilege・長期key無し) + Artifact Registry + append-only GCS
 repo variables。GitHub Environment は MANUAL_STEP_REQUIRED。実 gcloud で plan(変更0)/verify
 (全 MISSING)/apply ガード(CONFIRM無で STOP)を検証。11テスト + FULL = 424 PASS。`--apply` は
 オーナー実行（Claude Code は実行しない）。
+
+## Phase R3 実装結果 + R2.5 Retention 例外（2026-07-16）
+
+R2.5 retention は OWNER_ACCEPTED_EXCEPTION（34495200s≈399d18h・2026-07-16 承認・policy 変更なし・verify=READY_WITH_EXCEPTION）。
+R3: `release.yml`(workflow_dispatch のみ・WIF・SHA build→AR→`--no-traffic --tag candidate`→read-only smoke・**update-traffic なし**) + `smoke_test.py` + `configs/release/services.yaml`(endpoint SSOT) + `/status` read-only 拡張。対象=trees-catering-ai のみ(allowlist)。457 tests PASS。candidate deploy は未実行(次の owner YES)。本番 traffic/Scheduler/Secret 不変。

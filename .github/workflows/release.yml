@@ -1,0 +1,123 @@
+name: Release (candidate no-traffic + smoke)
+
+# YU Release & Operations OS — Phase R3.
+# Build a SHA-pinned image, deploy it as a --no-traffic --tag candidate revision
+# to trees-catering-ai, and run a read-only smoke test. Production traffic is
+# NEVER changed here (no update-traffic). Manual trigger only — nothing runs on
+# push/merge, so merging this workflow does not deploy anything.
+#
+# 禁止: update-traffic / production 昇格 / Scheduler / Secret / env 上書き /
+#       LINE 本番送信 / GBP 投稿 / Sheets・GCS 業務書込み / 対象外事業 deploy。
+
+on:
+  workflow_dispatch:
+    inputs:
+      business:
+        description: "release 対象事業（R3 は catering のみ許可）"
+        type: choice
+        options: [catering]
+        default: catering
+
+permissions:
+  contents: read
+  id-token: write   # WIF (Google Cloud OIDC) — release job のみ
+
+concurrency:
+  group: release-${{ github.event.inputs.business || 'catering' }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: candidate no-traffic + smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production   # Owner 承認ゲート（R5）。approval 無しでは進まない
+    env:
+      BUSINESS: ${{ github.event.inputs.business || 'catering' }}
+      PROJECT: ${{ vars.RELEASE_PROJECT }}
+      REGION: ${{ vars.RELEASE_REGION }}
+      AR_REPO: ${{ vars.RELEASE_AR_REPO }}
+      SERVICE: trees-catering-ai   # allowlist: R3 は catering のみ
+    steps:
+      - name: Checkout (pinned SHA)
+        uses: actions/checkout@v4
+
+      - name: Fail-closed guards (allowlist / vars present)
+        run: |
+          set -euo pipefail
+          [ "$BUSINESS" = "catering" ] || { echo "STOP: R3 は catering のみ ($BUSINESS)"; exit 1; }
+          for v in PROJECT REGION AR_REPO; do
+            eval "val=\${$v}"
+            [ -n "${val:-}" ] || { echo "STOP: repo variable $v 未設定（bootstrap step8 が必要）"; exit 1; }
+          done
+          [ "$SERVICE" = "trees-catering-ai" ] || { echo "STOP: service allowlist 違反 ($SERVICE)"; exit 1; }
+
+      - name: Auth to Google Cloud (WIF, no long-lived key)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.SA_DEPLOYER }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build SHA-pinned image (Cloud Build → Artifact Registry)
+        run: |
+          set -euo pipefail
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}/${SERVICE}:${GITHUB_SHA}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          # 既存 SHA image があれば再ビルドしない（二重 Build 防止）
+          if gcloud artifacts docker images describe "$IMAGE" --project="$PROJECT" >/dev/null 2>&1; then
+            echo "image already built for $GITHUB_SHA — skip"
+          else
+            gcloud builds submit --tag "$IMAGE" --project="$PROJECT" .
+          fi
+
+      - name: Deploy candidate (--no-traffic --tag candidate) — traffic 0%
+        run: |
+          set -euo pipefail
+          # env / Secret は変更しない。traffic は既存のまま（--no-traffic）。
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" --project "$PROJECT" \
+            --no-traffic --tag candidate --quiet
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+                 --format='value(status.traffic.url)' | tr ' ' '\n' | grep -m1 candidate || true)"
+          if [ -z "$URL" ]; then
+            URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+                   --format='json' | python3 -c 'import json,sys;d=json.load(sys.stdin);print(next((t.get("url","") for t in d.get("status",{}).get("traffic",[]) if t.get("tag")=="candidate"),""))')"
+          fi
+          [ -n "$URL" ] || { echo "STOP: candidate URL を取得できません（fail-closed）"; exit 1; }
+          echo "CANDIDATE_URL=$URL" >> "$GITHUB_ENV"
+          echo "candidate URL: $URL"
+
+      - name: Confirm production traffic unchanged (read-only)
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+            --format='value(status.traffic)' | tee /tmp/traffic.txt
+          # candidate は tag のみで percent=0 のはず。100% が candidate に向いていたら STOP
+          if grep -q "'tag': 'candidate'.*'percent': 100" /tmp/traffic.txt; then
+            echo "STOP: candidate に traffic が向いています"; exit 1
+          fi
+
+      - name: Read-only smoke test (candidate URL)
+        run: |
+          set -euo pipefail
+          python3 scripts/release/smoke_test.py --business "$BUSINESS" --candidate-url "$CANDIDATE_URL" | tee /tmp/smoke.json
+          {
+            echo "### R3 Candidate Smoke"
+            echo '```json'
+            cat /tmp/smoke.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (no traffic change)
+        if: always()
+        run: |
+          {
+            echo "### Release R3 (candidate no-traffic)"
+            echo "- service: $SERVICE (candidate revision, traffic 0%)"
+            echo "- production traffic: UNCHANGED (昇格していません)"
+            echo "- 定期実行 / 資格情報 / 環境変数: 未変更"
+          } >> "$GITHUB_STEP_SUMMARY"

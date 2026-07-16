@@ -917,3 +917,8 @@ SA={release-deployer, release-verifier, release-ledger}@project /
 AR=yu-release(docker) / bucket=gs://yu-release-ledger(UBLA+PAP+versioning+retention,
 ledger SA=objectCreator のみ=append-only)。長期 SA key・roles/owner・editor・admin を作らない
 （fail-closed テストで保証）。Secret 値は出力しない。
+
+## Phase R3 実装結果 + R2.5 Retention 例外（2026-07-16）
+
+R2.5 retention は OWNER_ACCEPTED_EXCEPTION（34495200s≈399d18h・2026-07-16 承認・policy 変更なし・verify=READY_WITH_EXCEPTION）。
+R3: `release.yml`(workflow_dispatch のみ・WIF・SHA build→AR→`--no-traffic --tag candidate`→read-only smoke・**update-traffic なし**) + `smoke_test.py` + `configs/release/services.yaml`(endpoint SSOT) + `/status` read-only 拡張。対象=trees-catering-ai のみ(allowlist)。457 tests PASS。candidate deploy は未実行(次の owner YES)。本番 traffic/Scheduler/Secret 不変。

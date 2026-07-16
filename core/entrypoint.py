@@ -71,6 +71,19 @@ def health():
 def status():
     def chk(key, min_len=10):
         return "✅" if len(os.getenv(key, "")) >= min_len else "❌"
+    # Release OS (R3): read-only content-policy flags for smoke tests. No secret
+    # values are exposed — only booleans / mode strings and a short commit id.
+    try:
+        from core import content_policy
+        release = {
+            "commit": os.getenv("RELEASE_COMMIT", "")[:40],
+            "image_generation_enabled": content_policy.image_generation_enabled(),
+            "line_text_delivery_enabled": content_policy.line_text_delivery_enabled(),
+            "line_image_delivery_enabled": content_policy.line_image_delivery_enabled(),
+            "delivery_mode": content_policy.delivery_mode(),
+        }
+    except Exception:
+        release = {"commit": os.getenv("RELEASE_COMMIT", "")[:40], "error": "policy_unavailable"}
     return jsonify({
         "business":    CONFIG["name"],
         "mode":        os.getenv("EXECUTION_MODE", "dry"),
@@ -78,6 +91,7 @@ def status():
         "google_creds": "✅" if CREDS_PATH else "❌",
         "spreadsheet": "✅" if SPREADSHEET_ID else "❌",
         "line_staff":  chk(CONFIG["line_channels"].get("staff", {}).get("env_key", ""), 100),
+        "release":     release,
     })
 
 

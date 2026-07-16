@@ -1,0 +1,53 @@
+# YU Release & Operations OS — Service / Endpoint SSOT (Phase R3)
+#
+# Single source of truth for: which Cloud Run services the release pipeline may
+# touch, the deploy order, and the REAL read-only endpoints smoke tests use.
+# Business <-> service names mirror configs/businesses/registry.yaml.
+#
+# deploy_target: false 以外は release.yml が deploy 対象にしない（allowlist）。
+# R3 では catering のみ対象。tachinomiya/beauty は R7、その他は対象外。
+# expected_* は smoke が実測値と突き合わせる期待値（画像生成停止・TEXT_ONLY 継続）。
+
+version: 1
+project: tree-beauty-ai-499303
+region: asia-northeast1
+artifact_registry: yu-release
+ledger_bucket: yu-release-ledger
+
+services:
+  - business: catering
+    cloud_run_service: trees-catering-ai
+    deploy_target: true
+    deploy_order: 1
+    endpoints:
+      health: /health
+      status: /status
+    expected:
+      business_identity: TREE'S CATERING
+      image_generation_enabled: false
+      line_text_delivery_enabled: true
+      line_image_delivery_enabled: false
+      delivery_mode: TEXT_ONLY
+
+  # ── R7 展開予定（現時点 deploy 対象外） ──────────────────────────────
+  - business: tachinomiya
+    cloud_run_service: tachinomiya-ai
+    deploy_target: false
+    deploy_order: 2
+    endpoints: {health: /health, status: /status}
+  - business: beauty
+    cloud_run_service: tree-beauty-ai
+    deploy_target: false
+    deploy_order: 3
+    endpoints: {health: /health, status: /status}
+
+  # ── 対象外（別オーナー / スコープ外）: 明示承認なしに deploy しない ──
+  - business: ryukyu_hinabe
+    cloud_run_service: ryukyu-hinabe-ai
+    deploy_target: false
+  - business: pasta_pasta
+    cloud_run_service: pasta-pasta-ai
+    deploy_target: false
+  - business: z1
+    cloud_run_service: z1-ai
+    deploy_target: false
