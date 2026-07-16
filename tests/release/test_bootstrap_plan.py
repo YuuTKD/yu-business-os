@@ -85,5 +85,35 @@ class EnvironmentManualStepTest(unittest.TestCase):
         self.assertIn("production", out)
 
 
+class ProjectNumberPlaceholderTest(unittest.TestCase):
+    """Regression: the STEP 5 WIF-binding failure was a literal <PROJECT_NUMBER>
+    placeholder leaking into the real principalSet. Guard against it returning."""
+
+    PLACEHOLDER = "<" + "PROJECT_NUMBER" + ">"  # avoid the literal in this file too
+
+    def test_no_literal_placeholder_in_source(self):
+        with open(_SCRIPT, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn(self.PLACEHOLDER, src)
+
+    def test_no_placeholder_in_any_mode_output(self):
+        for mode in ("--plan", "--verify", "--rollback-plan"):
+            rc, out = run(mode)
+            self.assertNotIn(self.PLACEHOLDER, out, mode)
+
+    def test_plan_principalset_uses_numeric_project_number(self):
+        rc, out = run("--plan")
+        self.assertEqual(rc, 0, out)
+        # principalSet must reference a numeric project number, never a placeholder
+        import re
+        m = re.search(r"principalSet://iam\.googleapis\.com/projects/([^/]+)/", out)
+        self.assertIsNotNone(m, out)
+        self.assertRegex(m.group(1), r"^[0-9]+$")
+
+    def test_repo_attribute_path_present(self):
+        rc, out = run("--plan")
+        self.assertIn("attribute.repository/YuuTKD/yu-business-os", out)
+
+
 if __name__ == "__main__":
     unittest.main()

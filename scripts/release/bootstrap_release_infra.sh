@@ -34,6 +34,13 @@ LEDGER_BUCKET="yu-release-ledger"
 RETENTION_SECONDS="34560000"   # ~400 days audit retention
 ENVIRONMENT="production"
 
+# Project number is NOT a secret (semi-public id). It is the expected value used
+# to validate the number resolved dynamically from gcloud. Never use a literal
+# a hardcoded project-number placeholder in any executed command (that caused STEP 5
+# WIF-binding failure). Resolution is fail-closed (see resolve_project_number).
+EXPECTED_PROJECT_NUMBER="75610219333"
+PROJECT_NUMBER=""
+
 MODE="plan"
 case "${1:-}" in
   --plan|"") MODE="plan" ;;
@@ -56,6 +63,47 @@ run_or_plan() {
     "$@"
   else
     printf '  [PLAN] %s\n' "$desc"
+    printf '         $ %s\n' "$*"
+  fi
+}
+
+# Resolve the project NUMBER dynamically and fail-closed. Sets PROJECT_NUMBER.
+#   apply : gcloud value MUST be numeric AND == EXPECTED, else STOP.
+#   plan/verify: prefer gcloud; if unavailable/non-numeric fall back to the known
+#               EXPECTED constant (never a placeholder); mismatch → STOP.
+resolve_project_number() {
+  local n=""
+  if command -v gcloud >/dev/null 2>&1; then
+    n="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)' 2>/dev/null || true)"
+  fi
+  if [[ "$MODE" == "apply" ]]; then
+    [[ -n "$n" ]] || { echo "STOP: project number を取得できません（空）。apply 中止。" >&2; exit 1; }
+    [[ "$n" =~ ^[0-9]+$ ]] || { echo "STOP: project number が数字ではありません: '$n'。apply 中止。" >&2; exit 1; }
+  else
+    if [[ ! "$n" =~ ^[0-9]+$ ]]; then n="$EXPECTED_PROJECT_NUMBER"; fi
+  fi
+  if [[ "$n" != "$EXPECTED_PROJECT_NUMBER" ]]; then
+    echo "STOP: project number 不一致（取得=$n / 想定=$EXPECTED_PROJECT_NUMBER）。中止。" >&2
+    exit 1
+  fi
+  PROJECT_NUMBER="$n"
+}
+
+# create_idempotent "<desc>" "<exists-check cmd>" -- <create cmd...>
+#   apply : run exists-check; SKIP if present, else create.
+#   plan  : print intended create (marked idempotent).
+create_idempotent() {
+  local desc="$1" check="$2"; shift 2
+  [[ "${1:-}" == "--" ]] && shift
+  if [[ "$MODE" == "apply" ]]; then
+    if eval "$check" >/dev/null 2>&1; then
+      printf '  \033[33m[SKIP]\033[0m %s (既存)\n' "$desc"
+    else
+      printf '  \033[32m[APPLY]\033[0m %s\n' "$desc"
+      "$@"
+    fi
+  else
+    printf '  [PLAN] %s (idempotent: 既存ならSKIP)\n' "$desc"
     printf '         $ %s\n' "$*"
   fi
 }
@@ -84,16 +132,18 @@ header() {
 
 # ── plan / apply: create resources ────────────────────────────────────────────
 do_plan_or_apply() {
-  local pnum
-  pnum="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)' 2>/dev/null || echo '<PROJECT_NUMBER>')"
+  resolve_project_number   # sets PROJECT_NUMBER (fail-closed; never a placeholder)
+  line "project_number=${PROJECT_NUMBER} (dynamic, validated)"
 
   say "1) Workload Identity Pool"
-  run_or_plan "create WIF pool ${POOL_ID}" \
+  create_idempotent "create WIF pool ${POOL_ID}" \
+    "gcloud iam workload-identity-pools describe '$POOL_ID' --project='$PROJECT' --location=global" -- \
     gcloud iam workload-identity-pools create "$POOL_ID" \
       --project="$PROJECT" --location=global --display-name="$POOL_DISPLAY"
 
   say "2) GitHub OIDC Provider (repo 限定 attribute condition)"
-  run_or_plan "create OIDC provider ${PROVIDER_ID} (condition: ${ATTR_CONDITION})" \
+  create_idempotent "create OIDC provider ${PROVIDER_ID} (condition: ${ATTR_CONDITION})" \
+    "gcloud iam workload-identity-pools providers describe '$PROVIDER_ID' --project='$PROJECT' --location=global --workload-identity-pool='$POOL_ID'" -- \
     gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
       --project="$PROJECT" --location=global --workload-identity-pool="$POOL_ID" \
       --display-name="GitHub OIDC" \
@@ -103,7 +153,8 @@ do_plan_or_apply() {
 
   say "3) Service Accounts (長期 key を作らない・WIF のみ)"
   for sa in "$SA_DEPLOYER" "$SA_VERIFIER" "$SA_LEDGER"; do
-    run_or_plan "create SA ${sa}" \
+    create_idempotent "create SA ${sa}" \
+      "gcloud iam service-accounts describe '${sa}@${SA_DOMAIN}' --project='$PROJECT'" -- \
       gcloud iam service-accounts create "$sa" --project="$PROJECT" \
         --display-name="release ${sa}"
   done
@@ -125,7 +176,9 @@ do_plan_or_apply() {
   # ledger: NO project role. Bucket-level objectCreator only (append-only) — set in step 7.
 
   say "5) WIF binding (repo の GitHub Actions → 各 SA を impersonate)"
-  local principal="principalSet://iam.googleapis.com/projects/${pnum}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${GH_REPO}"
+  # principalSet は動的取得した実 project number を使う（プレースホルダは使わない）。
+  local principal="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${GH_REPO}"
+  # add-iam-policy-binding は冪等（同一 member+role の再付与は no-op 成功）。
   for sa in "$SA_DEPLOYER" "$SA_VERIFIER" "$SA_LEDGER"; do
     run_or_plan "bind workloadIdentityUser: repo=${GH_REPO} -> ${sa}" \
       gcloud iam service-accounts add-iam-policy-binding "${sa}@${SA_DOMAIN}" \
@@ -133,12 +186,14 @@ do_plan_or_apply() {
   done
 
   say "6) Artifact Registry (docker, ${REGION})"
-  run_or_plan "create AR repo ${AR_REPO}" \
+  create_idempotent "create AR repo ${AR_REPO}" \
+    "gcloud artifacts repositories describe '$AR_REPO' --project='$PROJECT' --location='$REGION'" -- \
     gcloud artifacts repositories create "$AR_REPO" --project="$PROJECT" \
       --repository-format=docker --location="$REGION" --description="YU release images"
 
   say "7) GCS Ledger bucket (append-only)"
-  run_or_plan "create bucket gs://${LEDGER_BUCKET}" \
+  create_idempotent "create bucket gs://${LEDGER_BUCKET}" \
+    "gcloud storage buckets describe 'gs://${LEDGER_BUCKET}'" -- \
     gcloud storage buckets create "gs://${LEDGER_BUCKET}" --project="$PROJECT" \
       --location="$REGION" --uniform-bucket-level-access --public-access-prevention
   run_or_plan "enable object versioning" \
@@ -161,7 +216,7 @@ do_plan_or_apply() {
          # gh variable set RELEASE_REGION    -R ${GH_REPO} -b "${REGION}"
          # gh variable set RELEASE_AR_REPO   -R ${GH_REPO} -b "${AR_REPO}"
          # gh variable set LEDGER_BUCKET     -R ${GH_REPO} -b "${LEDGER_BUCKET}"
-         # gh variable set WIF_PROVIDER      -R ${GH_REPO} -b "projects/${pnum}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
+         # gh variable set WIF_PROVIDER      -R ${GH_REPO} -b "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
          # gh variable set SA_DEPLOYER       -R ${GH_REPO} -b "${SA_DEPLOYER}@${SA_DOMAIN}"
          # gh variable set SA_VERIFIER       -R ${GH_REPO} -b "${SA_VERIFIER}@${SA_DOMAIN}"
          # gh variable set SA_LEDGER         -R ${GH_REPO} -b "${SA_LEDGER}@${SA_DOMAIN}"
