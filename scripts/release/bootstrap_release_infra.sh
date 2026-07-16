@@ -31,7 +31,10 @@ SA_DOMAIN="${PROJECT}.iam.gserviceaccount.com"
 
 AR_REPO="yu-release"
 LEDGER_BUCKET="yu-release-ledger"
-RETENTION_SECONDS="34560000"   # ~400 days audit retention
+# gcloud storage --retention-period は単位付き duration が必須（例 1y36m / 400d）。
+# 秒数の裸指定（例 34560000）は "Duration must end with time part character" で失敗する。
+RETENTION_PERIOD="400d"          # 監査保持 400 日
+RETENTION_TARGET_SECONDS="34560000"  # 400d を秒換算（describe は秒で返るため比較用）
 ENVIRONMENT="production"
 
 # Project number is NOT a secret (semi-public id). It is the expected value used
@@ -105,6 +108,32 @@ create_idempotent() {
   else
     printf '  [PLAN] %s (idempotent: 既存ならSKIP)\n' "$desc"
     printf '         $ %s\n' "$*"
+  fi
+}
+
+# ensure_retention: retention を安全に設定する。
+#   plan  : 変更予定を表示（400d・単位付き）。
+#   apply : describe で現在値を確認 → 未設定なら SET(400d) / 400d 済なら SKIP /
+#           別値が設定済みなら STOP（勝手に変更しない）。
+# describe の retention_period は秒で返るため RETENTION_TARGET_SECONDS と比較する。
+ensure_retention() {
+  if [[ "$MODE" != "apply" ]]; then
+    printf '  [PLAN] set retention %s on gs://%s (未設定=SET / 400d済=SKIP / 別値=STOP)\n' "$RETENTION_PERIOD" "$LEDGER_BUCKET"
+    printf '         $ gcloud storage buckets update gs://%s --retention-period=%s\n' "$LEDGER_BUCKET" "$RETENTION_PERIOD"
+    return 0
+  fi
+  local cur
+  cur="$(gcloud storage buckets describe "gs://${LEDGER_BUCKET}" \
+        --format='value(retention_policy.retention_period)' 2>/dev/null || true)"
+  cur="${cur//[^0-9]/}"   # keep digits only (seconds)
+  if [[ -z "$cur" ]]; then
+    printf '  \033[32m[APPLY]\033[0m set retention %s\n' "$RETENTION_PERIOD"
+    gcloud storage buckets update "gs://${LEDGER_BUCKET}" --retention-period="${RETENTION_PERIOD}"
+  elif [[ "$cur" == "$RETENTION_TARGET_SECONDS" ]]; then
+    printf '  \033[33m[SKIP]\033[0m retention already 400d (%ss)\n' "$cur"
+  else
+    echo "STOP: 別の retention が設定済み (${cur}s != ${RETENTION_TARGET_SECONDS}s=400d)。勝手に変更しません。" >&2
+    exit 1
   fi
 }
 
@@ -198,8 +227,7 @@ do_plan_or_apply() {
       --location="$REGION" --uniform-bucket-level-access --public-access-prevention
   run_or_plan "enable object versioning" \
     gcloud storage buckets update "gs://${LEDGER_BUCKET}" --versioning
-  run_or_plan "set retention ${RETENTION_SECONDS}s (~400d)" \
-    gcloud storage buckets update "gs://${LEDGER_BUCKET}" --retention-period="${RETENTION_SECONDS}"
+  ensure_retention
   # ledger SA: objectCreator only (create, NOT overwrite/delete) — append-only
   run_or_plan "grant objectCreator (append-only) on bucket -> ${SA_LEDGER}" \
     gcloud storage buckets add-iam-policy-binding "gs://${LEDGER_BUCKET}" \
@@ -245,6 +273,18 @@ do_verify() {
   done
   chk "Artifact Registry ${AR_REPO}" gcloud artifacts repositories describe "$AR_REPO" --project="$PROJECT" --location="$REGION"
   chk "Ledger bucket ${LEDGER_BUCKET}" gcloud storage buckets describe "gs://${LEDGER_BUCKET}"
+  # retention = 400 日 (34560000s) を確認
+  local rp
+  rp="$(gcloud storage buckets describe "gs://${LEDGER_BUCKET}" \
+        --format='value(retention_policy.retention_period)' 2>/dev/null || true)"
+  rp="${rp//[^0-9]/}"
+  if [[ "$rp" == "$RETENTION_TARGET_SECONDS" ]]; then
+    printf '  \033[32mREADY\033[0m  Retention 400 日 (%ss)\n' "$rp"
+  elif [[ -z "$rp" ]]; then
+    printf '  \033[33mMISSING\033[0m Retention 未設定\n'
+  else
+    printf '  \033[33mOTHER\033[0m  Retention %ss (!= 400 日 %ss)\n' "$rp" "$RETENTION_TARGET_SECONDS"
+  fi
   echo "  (GitHub Environment '${ENVIRONMENT}' は GitHub 側で確認: Settings → Environments)"
 }
 
