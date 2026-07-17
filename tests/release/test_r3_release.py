@@ -159,6 +159,28 @@ class ReleaseWorkflowSafetyTest(unittest.TestCase):
                       "pasta-pasta-ai", "z1-ai"):
             self.assertNotIn(other, self.src, other)
 
+    def test_build_uses_runner_docker_not_cloud_build(self):
+        # Option C: build on runner + push to AR. No Cloud Build / staging bucket
+        # (root cause of the 'forbidden from accessing the bucket' error).
+        self.assertNotIn("gcloud builds submit", self.code)
+        self.assertNotIn("_cloudbuild", self.code)  # no staging bucket reference
+        self.assertIn("docker build", self.code)
+        self.assertIn("docker push", self.code)
+        self.assertIn("configure-docker", self.code)
+
+    def test_auth_preflight_fail_closed(self):
+        # preflight compares active account / project and checks AR access, STOP otherwise
+        self.assertIn("active account", self.src)
+        self.assertIn("project mismatch", self.code)
+        self.assertIn("artifacts repositories describe", self.code)
+        self.assertIn("SA_DEPLOYER", self.src)
+
+    def test_preflight_prints_no_secrets(self):
+        # diagnostic prints account/project/host only — never tokens/credentials/IAM policy
+        for bad in ("print-access-token", "print-identity-token", "get-iam-policy",
+                    "auth print", "credentials.json"):
+            self.assertNotIn(bad, self.code, bad)
+
 
 class RetentionExceptionTest(unittest.TestCase):
     def setUp(self):
