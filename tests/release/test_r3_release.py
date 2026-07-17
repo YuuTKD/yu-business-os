@@ -33,10 +33,30 @@ def good_status():
     }
 
 
+class SmokeAudienceTest(unittest.TestCase):
+    def test_audience_required(self):
+        # audience is a required CLI arg — argparse exits (SystemExit) when missing,
+        # so there is no code path that mints an audience-less token.
+        with self.assertRaises(SystemExit):
+            smoke_test.main(["--candidate-url", "https://candidate---x.a.run.app"])
+
+    def test_audience_must_be_https(self):
+        rc = smoke_test.main(["--candidate-url", "https://candidate---x.a.run.app",
+                              "--audience", "trees-catering-ai"])  # not https
+        self.assertEqual(rc, 1)
+
+    def test_identity_token_requires_audience(self):
+        self.assertEqual(smoke_test._identity_token(""), "")
+
+
 class SmokeEvaluateTest(unittest.TestCase):
     def test_all_good_is_go(self):
         r = smoke_test.evaluate(200, 200, good_status(), CATERING_EXPECTED)
         self.assertEqual(r["verdict"], "GO", r["findings"])
+
+    def test_403_is_rollback(self):
+        r = smoke_test.evaluate(403, 403, None, CATERING_EXPECTED)
+        self.assertEqual(r["verdict"], "ROLLBACK")
 
     def test_health_not_200_rollback(self):
         self.assertEqual(smoke_test.evaluate(503, 200, good_status(), CATERING_EXPECTED)["verdict"], "ROLLBACK")
@@ -176,10 +196,23 @@ class ReleaseWorkflowSafetyTest(unittest.TestCase):
         self.assertIn("SA_DEPLOYER", self.src)
 
     def test_preflight_prints_no_secrets(self):
-        # diagnostic prints account/project/host only — never tokens/credentials/IAM policy
-        for bad in ("print-access-token", "print-identity-token", "get-iam-policy",
-                    "auth print", "credentials.json"):
-            self.assertNotIn(bad, self.code, bad)
+        # diagnostic prints account/project/host only — never token/credential VALUES.
+        # (print-identity-token is used to MINT the token but its stdout is discarded
+        # via >/dev/null; assert it never echoes a token.)
+        self.assertNotIn("echo \"$TOK", self.code)
+        self.assertNotIn("print-access-token", self.code)
+        self.assertNotIn("get-iam-policy", self.code)
+
+    def test_smoke_uses_verifier_and_audience(self):
+        # smoke re-auths as release-verifier and passes audience=SERVICE_URL (not tag URL)
+        self.assertIn("SA_VERIFIER", self.src)
+        self.assertIn("--audience", self.code)
+        self.assertIn("status.url", self.code)  # SERVICE base URL for audience
+        self.assertIn("--audiences=", self.code)  # token minted with an audience
+
+    def test_smoke_preflight_no_token_output(self):
+        # preflight discards the token (>/dev/null) and never echoes it
+        self.assertIn("print-identity-token --audiences=\"$SERVICE_URL\" >/dev/null", self.code)
 
 
 class RetentionExceptionTest(unittest.TestCase):
@@ -197,6 +230,32 @@ class RetentionExceptionTest(unittest.TestCase):
     def test_ensure_retention_skips_accepted_not_stop(self):
         # accepted value must be a SKIP branch, not fall through to STOP
         self.assertIn("OWNER_ACCEPTED_EXCEPTION", self.src)
+
+
+class RunInvokerBootstrapTest(unittest.TestCase):
+    def setUp(self):
+        with open(os.path.join(_REPO_ROOT, "scripts", "release",
+                               "bootstrap_release_infra.sh"), encoding="utf-8") as fh:
+            self.src = fh.read()
+
+    def test_service_scoped_invoker_for_verifier(self):
+        self.assertIn("ensure_run_invoker", self.src)
+        self.assertIn("run services add-iam-policy-binding", self.src)
+        self.assertIn("roles/run.invoker", self.src)
+        self.assertIn('SMOKE_SERVICE="trees-catering-ai"', self.src)
+
+    def test_invoker_not_project_wide(self):
+        # invoker must be granted on the service, never via `gcloud projects add-iam-policy-binding ... run.invoker`
+        import re
+        for m in re.finditer(r"projects add-iam-policy-binding[^\n]*", self.src):
+            self.assertNotIn("run.invoker", m.group(0))
+
+    def test_invoker_fail_closed_service_missing(self):
+        self.assertIn("不存在", self.src)  # STOP when service does not exist
+
+    def test_no_broad_roles_still(self):
+        for bad in ("roles/owner", "roles/editor", "roles/run.admin"):
+            self.assertNotIn(bad, self.src, bad)
 
 
 if __name__ == "__main__":

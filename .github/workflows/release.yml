@@ -125,10 +125,39 @@ jobs:
             echo "STOP: candidate に traffic が向いています"; exit 1
           fi
 
-      - name: Read-only smoke test (candidate URL)
+      # Smoke は権限分離のため release-verifier(run.invoker 保有) へ認証主体を切替える。
+      - name: Re-auth as release-verifier (smoke invoker)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.SA_VERIFIER }}
+
+      - name: Smoke preflight (fail-closed, no token output)
         run: |
           set -euo pipefail
-          python3 scripts/release/smoke_test.py --business "$BUSINESS" --candidate-url "$CANDIDATE_URL" | tee /tmp/smoke.json
+          ACC="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -1)"
+          # ID token audience は tag URL ではなく SERVICE 本体 URL を使う（Cloud Run 仕様）。
+          SERVICE_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+                         --format='value(status.url)')"
+          echo "smoke active account : ${ACC:-<none>}"
+          echo "request host  : $(echo "$CANDIDATE_URL" | sed -E 's#https://([^/]+).*#\1#')"
+          echo "audience host : $(echo "$SERVICE_URL"   | sed -E 's#https://([^/]+).*#\1#')"
+          [ "$ACC" = "${{ vars.SA_VERIFIER }}" ] || { echo "STOP: smoke account != release-verifier ($ACC)"; exit 1; }
+          case "$SERVICE_URL" in https://*) : ;; *) echo "STOP: SERVICE_URL が https でない/空"; exit 1 ;; esac
+          case "$CANDIDATE_URL" in https://*) : ;; *) echo "STOP: CANDIDATE_URL が https でない"; exit 1 ;; esac
+          # audience 生成可否だけ確認（token 値は表示しない）
+          gcloud auth print-identity-token --audiences="$SERVICE_URL" >/dev/null 2>&1 \
+            || { echo "STOP: ID token 生成に失敗"; exit 1; }
+          echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
+          echo "smoke preflight OK"
+
+      - name: Read-only smoke test (candidate URL, audience=SERVICE_URL)
+        run: |
+          set -euo pipefail
+          python3 scripts/release/smoke_test.py \
+            --business "$BUSINESS" \
+            --candidate-url "$CANDIDATE_URL" \
+            --audience "$SERVICE_URL" | tee /tmp/smoke.json
           {
             echo "### R3 Candidate Smoke"
             echo '```json'

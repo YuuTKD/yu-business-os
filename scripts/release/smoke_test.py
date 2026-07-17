@@ -101,14 +101,25 @@ def evaluate(health_code, status_code, status_json, expected):
     }
 
 
-def _auth_get(url):
-    """Read-only GET with a gcloud identity token. Token is never printed."""
-    tok = ""
+def _identity_token(audience):
+    """Mint a Cloud Run ID token for the given AUDIENCE. Never printed/returned to logs.
+
+    Cloud Run authenticates the token audience against the SERVICE base URL — even
+    when the request target is a traffic-tag (candidate) URL. Audience is required.
+    """
+    if not audience:
+        return ""
     try:
-        tok = subprocess.run(["gcloud", "auth", "print-identity-token"],
-                             capture_output=True, text=True).stdout.strip()
+        return subprocess.run(
+            ["gcloud", "auth", "print-identity-token", f"--audiences={audience}"],
+            capture_output=True, text=True).stdout.strip()
     except Exception:
-        tok = ""
+        return ""
+
+
+def _auth_get(url, audience):
+    """Read-only GET with an audience-scoped ID token. Token is never printed."""
+    tok = _identity_token(audience)
     headers = ["-H", f"Authorization: Bearer {tok}"] if tok else []
     p = subprocess.run(["curl", "-s", "-o", "-", "-w", "\n%{http_code}", *headers, url],
                        capture_output=True, text=True)
@@ -122,8 +133,18 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Release OS read-only smoke test")
     ap.add_argument("--business", default="catering")
     ap.add_argument("--candidate-url", required=True,
-                    help="candidate revision tag URL (NOT the production URL)")
+                    help="candidate revision tag URL (request target; NOT the audience)")
+    ap.add_argument("--audience", required=True,
+                    help="ID token audience = Cloud Run SERVICE base URL (not the tag URL)")
     args = ap.parse_args(argv)
+
+    # fail-closed: audience must be the https service URL, distinct role from target.
+    if not args.audience.startswith("https://"):
+        print(json.dumps({"verdict": "ROLLBACK", "findings": ["audience_not_https"]}))
+        return 1
+    if not args.candidate_url.startswith("https://"):
+        print(json.dumps({"verdict": "ROLLBACK", "findings": ["candidate_url_not_https"]}))
+        return 1
 
     spec = load_service_spec(args.business)
     if not spec:
@@ -132,8 +153,9 @@ def main(argv=None):
     ep = spec.get("endpoints", {})
     expected = spec.get("expected", {})
 
-    hc, _ = _auth_get(args.candidate_url.rstrip("/") + ep.get("health", "/health"))
-    sc, sbody = _auth_get(args.candidate_url.rstrip("/") + ep.get("status", "/status"))
+    aud = args.audience
+    hc, _ = _auth_get(args.candidate_url.rstrip("/") + ep.get("health", "/health"), aud)
+    sc, sbody = _auth_get(args.candidate_url.rstrip("/") + ep.get("status", "/status"), aud)
     try:
         sjson = json.loads(sbody)
     except Exception:
