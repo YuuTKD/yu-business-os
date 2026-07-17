@@ -60,17 +60,41 @@ jobs:
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.RELEASE_PROJECT }}
 
-      - name: Build SHA-pinned image (Cloud Build → Artifact Registry)
+      - name: Auth preflight (fail-closed, no secrets)
+        run: |
+          set -euo pipefail
+          # 値のみ表示（token / credentials / IAM 全文は出さない）
+          ACC="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -1)"
+          PROJ="$(gcloud config get-value project 2>/dev/null || true)"
+          echo "active account : ${ACC:-<none>}"
+          echo "gcloud project : ${PROJ:-<none>}"
+          echo "target AR host : ${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}"
+          echo "build method   : runner docker build + push (Cloud Build / staging bucket 不使用)"
+          # fail-closed preflight
+          [ "$ACC" = "${{ vars.SA_DEPLOYER }}" ] || { echo "STOP: active account != release-deployer ($ACC)"; exit 1; }
+          [ "$PROJ" = "$PROJECT" ] || { echo "STOP: project mismatch ($PROJ != $PROJECT)"; exit 1; }
+          gcloud artifacts repositories describe "$AR_REPO" --location="$REGION" --project="$PROJECT" >/dev/null 2>&1 \
+            || { echo "STOP: Artifact Registry $AR_REPO へアクセス不可（artifactregistry 権限不足）"; exit 1; }
+          command -v docker >/dev/null 2>&1 || { echo "STOP: docker 不在"; exit 1; }
+          echo "preflight OK"
+
+      - name: Build SHA-pinned image on runner + push to Artifact Registry
         run: |
           set -euo pipefail
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}/${SERVICE}:${GITHUB_SHA}"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-          # 既存 SHA image があれば再ビルドしない（二重 Build 防止）
+          # 二重 Build 防止: 既存 SHA image があれば skip
           if gcloud artifacts docker images describe "$IMAGE" --project="$PROJECT" >/dev/null 2>&1; then
-            echo "image already built for $GITHUB_SHA — skip"
+            echo "image already exists for $GITHUB_SHA — skip build/push"
           else
-            gcloud builds submit --tag "$IMAGE" --project="$PROJECT" .
+            # Cloud Build / staging bucket は使わない（bucket権限問題を回避・最小権限）。
+            # 必要権限は artifactregistry.writer のみ（release-deployer に付与済み）。
+            gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+            docker build --platform linux/amd64 -t "$IMAGE" .
+            docker push "$IMAGE"
           fi
 
       - name: Deploy candidate (--no-traffic --tag candidate) — traffic 0%

@@ -195,7 +195,11 @@ do_plan_or_apply() {
   done
 
   say "4) SA IAM roles (least privilege)"
-  # deployer: build + AR write + Cloud Run deploy + actAs runtime SA
+  # deployer: image push (AR write) + Cloud Run deploy + actAs runtime SA。
+  # NOTE(R3): image は runner 上で docker build → AR push（release.yml, Option C）。
+  #   Cloud Build / staging bucket は使わない（bucket buckets.get 権限問題の回避）。
+  #   よって build に必須なのは artifactregistry.writer。cloudbuild.builds.editor は
+  #   将来 Cloud Build を使う場合の予備として残す（build には不要）。
   for role in roles/run.developer roles/cloudbuild.builds.editor \
               roles/artifactregistry.writer roles/iam.serviceAccountUser; do
     run_or_plan "grant ${role} -> ${SA_DEPLOYER}" \
