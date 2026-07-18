@@ -1,0 +1,20 @@
+# PLAUD import settings (non-secret). No URLs / tokens are stored here.
+version: 1
+allowed_host: web.plaud.ai
+allowed_prefix: https://web.plaud.ai/s/
+gcs_root: gs://tree-beauty-blog-images/knowledge-os
+plaud_base: 10_PLAUD
+# フォルダ構成（GCS 正本）
+layout:
+  raw: 00_Raw_Transcripts
+  processed: 01_Processed
+  decision_candidates: 02_Decision_Candidates
+  philosophy_candidates: 03_Philosophy_Candidates
+  task_candidates: 04_Task_Candidates
+  sop_candidates: 05_SOP_Candidates
+  content_candidates: 06_Content_Candidates
+  conflict_review: 07_Conflict_Review
+  daily_summaries: 08_Daily_Summaries
+  processing_logs: 09_Processing_Logs
+# 思想確定は observed → hypothesis → confirmed。confirmed のみ思想モデル反映（Yes 後・別Phase）。
+philosophy_status_flow: [observed, hypothesis, confirmed]
