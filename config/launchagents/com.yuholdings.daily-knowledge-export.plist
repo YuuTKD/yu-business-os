@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  YU Knowledge OS — Daily Export LaunchAgent (template).
+  Install target: ~/Library/LaunchAgents/com.yuholdings.daily-knowledge-export.plist
+  Runs run_daily_export.sh daily at 23:50. RunAtLoad は false（ログイン時に走らせない）。
+  Mac がスリープ等で 23:50 を逃した場合、launchd は次回起動時に 1 回だけ実行し、
+  当日ファイルが既にあれば内容更新のみ（過去日付ファイルは削除しない）。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yuholdings.daily-knowledge-export</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/tokudayuya/yu-business-os/scripts/knowledge/run_daily_export.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>23</integer>
+        <key>Minute</key>
+        <integer>50</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/tokudayuya/yu-business-os</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/tokudayuya/yu-business-os/logs/daily_knowledge_export.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/tokudayuya/yu-business-os/logs/daily_knowledge_export.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

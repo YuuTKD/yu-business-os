@@ -40,6 +40,9 @@ RETENTION_TARGET_SECONDS="34560000"  # 400d を秒換算（describe は秒で返
 # 変更せず lock もしない。verify はこの値を READY_WITH_EXCEPTION として扱う。
 RETENTION_ACCEPTED_SECONDS="34495200"
 ENVIRONMENT="production"
+# Smoke test invoker: release-verifier needs roles/run.invoker on the SMOKE service
+# ONLY (service-scoped, never project-wide) to call the authenticated candidate URL.
+SMOKE_SERVICE="trees-catering-ai"
 
 # Project number is NOT a secret (semi-public id). It is the expected value used
 # to validate the number resolved dynamically from gcloud. Never use a literal
@@ -140,6 +143,32 @@ ensure_retention() {
   else
     echo "STOP: 別の retention が設定済み (${cur}s != 400d/accepted)。勝手に変更しません。" >&2
     exit 1
+  fi
+}
+
+# ensure_run_invoker: release-verifier に SMOKE_SERVICE 単位で roles/run.invoker を付与。
+#   plan  : 付与予定を表示。
+#   apply : service 不存在 → STOP。既存の binding → SKIP。それ以外 → 付与。
+# project 全体への run.invoker は付与しない（service-scoped のみ）。
+ensure_run_invoker() {
+  local member="serviceAccount:${SA_VERIFIER}@${SA_DOMAIN}"
+  if [[ "$MODE" != "apply" ]]; then
+    printf '  [PLAN] grant roles/run.invoker on %s -> %s (service単位・既存ならSKIP)\n' "$SMOKE_SERVICE" "$member"
+    printf '         $ gcloud run services add-iam-policy-binding %s --region=%s --project=%s --member=%s --role=roles/run.invoker\n' \
+      "$SMOKE_SERVICE" "$REGION" "$PROJECT" "$member"
+    return 0
+  fi
+  gcloud run services describe "$SMOKE_SERVICE" --region="$REGION" --project="$PROJECT" >/dev/null 2>&1 \
+    || { echo "STOP: Cloud Run service ${SMOKE_SERVICE} 不存在。invoker 付与中止。" >&2; exit 1; }
+  if gcloud run services get-iam-policy "$SMOKE_SERVICE" --region="$REGION" --project="$PROJECT" \
+       --flatten="bindings[].members" \
+       --filter="bindings.role=roles/run.invoker AND bindings.members=${member}" \
+       --format='value(bindings.role)' 2>/dev/null | grep -q "run.invoker"; then
+    printf '  \033[33m[SKIP]\033[0m run.invoker 既存 (%s -> %s)\n' "$SMOKE_SERVICE" "$member"
+  else
+    printf '  \033[32m[APPLY]\033[0m grant run.invoker on %s -> %s\n' "$SMOKE_SERVICE" "$member"
+    gcloud run services add-iam-policy-binding "$SMOKE_SERVICE" --region="$REGION" --project="$PROJECT" \
+      --member="$member" --role="roles/run.invoker"
   fi
 }
 
@@ -247,6 +276,9 @@ do_plan_or_apply() {
     gcloud storage buckets add-iam-policy-binding "gs://${LEDGER_BUCKET}" \
       --member="serviceAccount:${SA_VERIFIER}@${SA_DOMAIN}" --role="roles/storage.objectViewer"
 
+  say "7b) Smoke invoker: release-verifier に run.invoker（${SMOKE_SERVICE} 単位）"
+  ensure_run_invoker
+
   say "8) GitHub Actions repo variables (workflow が infra 名を知るため・Secret ではない)"
   run_or_plan "set repo variables" bash -c ':'  # placeholder printed below
   cat <<EOF
@@ -296,6 +328,16 @@ do_verify() {
     printf '  \033[33mMISSING\033[0m Retention 未設定\n'
   else
     printf '  \033[33mOTHER\033[0m  Retention %ss (!= 400 日 / accepted)\n' "$rp"
+  fi
+  # release-verifier run.invoker on the smoke service (service-scoped)
+  local vmember="serviceAccount:${SA_VERIFIER}@${SA_DOMAIN}"
+  if gcloud run services get-iam-policy "$SMOKE_SERVICE" --region="$REGION" --project="$PROJECT" \
+       --flatten="bindings[].members" \
+       --filter="bindings.role=roles/run.invoker AND bindings.members=${vmember}" \
+       --format='value(bindings.role)' 2>/dev/null | grep -q "run.invoker"; then
+    printf '  \033[32mREADY\033[0m  run.invoker (%s -> release-verifier, service単位)\n' "$SMOKE_SERVICE"
+  else
+    printf '  \033[33mMISSING\033[0m run.invoker (%s に release-verifier 未付与)\n' "$SMOKE_SERVICE"
   fi
   echo "  (GitHub Environment '${ENVIRONMENT}' は GitHub 側で確認: Settings → Environments)"
 }

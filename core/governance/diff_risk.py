@@ -159,6 +159,7 @@ FULL = "FULL"  # sentinel meaning "run the whole suite"
 _CATEGORY_PATTERNS = (
     ("deployment_workflow", r"^\.github/workflows/|^deploy/|^scripts/release/|^configs/release/"),
     ("acquisition",         r"^scripts/acquisition/"),
+    ("automation",          r"^scripts/knowledge/|^config/launchagents/|(^|/)launchd|\.plist$"),
     ("tests",               r"^tests/"),
     ("scheduler",           r"scheduler"),
     ("secret_reference",    r"(^|/)\.env(\.|$)|credentials(\.json)?$|"
@@ -187,6 +188,7 @@ _CATEGORY_PATTERNS = (
 FULL_TEST_CATEGORIES = frozenset({
     "core_runtime", "governance", "deployment_workflow", "secret_reference",
     "external_send", "cross_business", "ssot", "cloud_run_service", "unknown",
+    "automation",
 })
 
 # Category → test groups it implies (real dirs only).

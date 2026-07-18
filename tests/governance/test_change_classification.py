@@ -102,6 +102,15 @@ class CategoryTest(unittest.TestCase):
         self.assertTrue(r["full_test_required"])
         self.assertTrue(r["staging_required"])
 
+    def test_automation_layer_not_unknown(self):
+        for p in ("scripts/knowledge/export_daily_knowledge.py",
+                  "config/launchagents/com.yuholdings.daily-knowledge-export.plist"):
+            r = cc([p])
+            self.assertIn("automation", r["categories"], p)
+            self.assertNotIn("unknown", r["categories"], p)
+            self.assertTrue(r["full_test_required"], p)
+            self.assertFalse(r["blocked"], p)
+
     def test_cross_business(self):
         r = cc(["core/multi_business_content_engine.py"])
         self.assertIn("cross_business", r["categories"])
