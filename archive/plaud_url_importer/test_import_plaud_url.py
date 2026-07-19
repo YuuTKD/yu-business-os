@@ -10,7 +10,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__f
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from scripts.plaud import import_plaud_url as pl
+from archive.plaud_url_importer import import_plaud_url as pl
 
 # A fake share URL with an obvious token; the token must never be persisted.
 TOKEN = "SECRETTOKEN_" + "Z" * 40
