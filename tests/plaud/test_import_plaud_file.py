@@ -116,6 +116,47 @@ class SaveTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.v, "08_月別", "2026-07.md")))
 
 
+class CandidateTest(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp(); self.v = tempfile.mkdtemp()
+
+    def test_extract_verbatim_candidates(self):
+        text = "来週から新メニューを開始すると決定した。田中が資料を準備する担当。本人稼働削減を最優先で重視する。"
+        c = fi.extract_candidates(text)
+        self.assertTrue(any("決定した" in s for s in c["decision"]))
+        self.assertTrue(any("担当" in s for s in c["task"]))
+        self.assertTrue(any("重視" in s for s in c["philosophy"]))
+        # verbatim (from the original text), not a fabricated summary
+        self.assertTrue(all(s in fi.mask_pii(text) or s[:20] in fi.mask_pii(text)
+                            for s in c["decision"]))
+
+    def test_no_match_is_empty_not_fabricated(self):
+        c = fi.extract_candidates("ただの雑談です。天気の話。")
+        self.assertEqual(c, {"decision": [], "task": [], "philosophy": []})
+
+    def test_processed_shows_candidates_and_yesno(self):
+        p = _w(self.d, "m.txt", "値上げを決定した。担当は田中で期限は来週。")
+        res = _apply(p, self.v)
+        proc = open([w for w in res["written"] if "02_整理済み" in w][0], encoding="utf-8").read()
+        self.assertIn("値上げを決定した", proc)
+        self.assertIn("observed・要確認", proc)
+        self.assertIn("- [ ] Yes / No", proc)
+        self.assertIn("candidate_counts", str(res.keys()) or "")
+
+    def test_candidate_pii_masked(self):
+        p = _w(self.d, "m.txt", "顧客 tanaka@example.com へ連絡すると決定した。")
+        res = _apply(p, self.v)
+        proc = open([w for w in res["written"] if "02_整理済み" in w][0], encoding="utf-8").read()
+        self.assertIn("決定した", proc)
+        self.assertNotIn("tanaka@example.com", proc)   # PII masked in candidate
+
+    def test_empty_sections_stay_no_data(self):
+        p = _w(self.d, "m.txt", "天気の話だけ。特に何もなし。")
+        res = _apply(p, self.v)
+        proc = open([w for w in res["written"] if "02_整理済み" in w][0], encoding="utf-8").read()
+        self.assertIn("取得なし", proc)  # no fabricated decisions/tasks
+
+
 class EmptyTest(unittest.TestCase):
     def test_empty_stops(self):
         d = tempfile.mkdtemp(); v = tempfile.mkdtemp()

@@ -207,6 +207,36 @@ def content_flags(text):
             "meeting": bool(re.search(_HAS_MEETING, text or ""))}
 
 
+def _sentences(text):
+    parts = re.split(r"(?<=[。！？!?])\s*|\n+", text or "")
+    return [s.strip() for s in parts if s and s.strip()]
+
+
+def extract_candidates(text, limit=10):
+    """Extract VERBATIM candidate sentences (not summaries) for decisions / tasks /
+    philosophy. These are observed candidates for the owner to confirm (Yes/No),
+    never auto-confirmed. Returns {kind: [masked_sentence, ...]}. Empty when none
+    match (no fabrication)."""
+    pats = {"decision": _HAS_DECISION, "task": _HAS_TASK, "philosophy": _HAS_PHILO}
+    out = {"decision": [], "task": [], "philosophy": []}
+    for s in _sentences(text):
+        for kind, pat in pats.items():
+            if len(out[kind]) < limit and re.search(pat, s):
+                out[kind].append(mask_pii(s)[:200])
+    return out
+
+
+def _section(title, items, suffix=""):
+    lines = [f"## {title}"]
+    if items:
+        lines += [f"- {it}  ⟨observed・要確認⟩" for it in items]
+        lines.append("- [ ] Yes / No：上記を確定して差し支えないか")
+    else:
+        lines.append(f"- {NO_DATA}{suffix}")
+    lines.append("")
+    return lines
+
+
 def tags_for(business, flags):
     biz = re.sub(r"[^a-z0-9\-]+", "-", business.lower()) or "unclassified"
     tags = ["plaud", "transcript", f"biz-{biz}"]
@@ -242,26 +272,37 @@ def build_raw_md(meta):
 
 def build_processed_md(meta):
     tags = "\n".join(f"  - {t}" for t in meta["tags"])
-    return "\n".join([
+    cand = meta.get("candidates") or {"decision": [], "task": [], "philosophy": []}
+    lines = [
         "---", "source: PLAUD", "source_type: uploaded-file",
         f"title: {meta['title']}", f"business: {meta['business']}",
         f"type: {meta['type']}", "status: observed", "confidence: low",
         "tags:", tags, "---", "", f"# {meta['title']}", "",
         f"原文: [[{D_RAW}/{meta['stem']}]]", "",
-        "## 3行要約", f"- {NO_DATA}（自動確定しない・原文参照）", "",
+        "> 以下は原文からの**該当文抽出（observed 候補）**。要約は生成せず、確定は Yes/No 後。", "",
+        "## 3行要約", f"- {NO_DATA}（要約は自動生成しない・原文参照）", "",
         "## 詳細要約", NO_DATA, "", "## 事実", f"- {NO_DATA}", "",
-        "## 決定事項", f"- {NO_DATA}", "", "## 保留事項", f"- {NO_DATA}", "",
-        "## タスク", "", "| タスク | 担当者 | 期限 | 状態 |", "|---|---|---|---|",
-        "| (未抽出) |  |  | observed |", "",
-        "## 数値・KPI", f"- {NO_DATA}", "", "## 人物・組織", f"- {NO_DATA}（PIIマスク）", "",
-        "## 思想・価値観候補", f"- {NO_DATA}（observed・confirmed 昇格は Yes 後）", "",
-        "## 判断原則候補", f"- {NO_DATA}", "", "## SOP候補", f"- {NO_DATA}", "",
-        "## 売上・利益への影響", f"- {NO_DATA}", "",
-        "## ゆうさんの稼働削減への影響", f"- {NO_DATA}", "",
-        "## 他事業への波及", f"- {NO_DATA}", "",
-        "## 既存方針との一致", f"- {NO_DATA}", "", "## 既存方針との矛盾", f"- {NO_DATA}", "",
-        "## Yes / No確認事項", "- [ ] Yes / No：（自動確定しない）", "",
-    ])
+    ]
+    lines += _section("決定事項", cand["decision"], "（該当文なし）")
+    lines += ["## 保留事項", f"- {NO_DATA}", ""]
+    # tasks: candidate sentences + an empty template row for manual fill
+    lines += ["## タスク"]
+    if cand["task"]:
+        for t in cand["task"]:
+            lines.append(f"- {t}  ⟨observed・要確認⟩")
+        lines.append("- [ ] Yes / No：タスク化してよいか")
+    lines += ["", "| タスク | 担当者 | 期限 | 状態 |", "|---|---|---|---|",
+              "| (確定後に記入) |  |  | observed |", ""]
+    lines += ["## 数値・KPI", f"- {NO_DATA}", "", "## 人物・組織", f"- {NO_DATA}（PIIマスク）", ""]
+    lines += _section("思想・価値観候補", cand["philosophy"],
+                      "（該当文なし・confirmed 昇格は Yes 後）")
+    lines += ["## 判断原則候補", f"- {NO_DATA}", "", "## SOP候補", f"- {NO_DATA}", "",
+              "## 売上・利益への影響", f"- {NO_DATA}", "",
+              "## ゆうさんの稼働削減への影響", f"- {NO_DATA}", "",
+              "## 他事業への波及", f"- {NO_DATA}", "",
+              "## 既存方針との一致", f"- {NO_DATA}", "", "## 既存方針との矛盾", f"- {NO_DATA}", "",
+              "## Yes / No確認事項", "- [ ] Yes / No：（上記候補の確定・自動確定しない）", ""]
+    return "\n".join(lines)
 
 
 def update_link_page(existing, title, link, header):
@@ -373,7 +414,9 @@ def run(mode, path, dest_root=VAULT_PLAUD, business="", title="", date=None,
     meta = {"source_filename": os.path.basename(path), "sha": sha, "ext": ext,
             "recorded_at": guess_date(text, path, NO_DATA), "imported_at": now,
             "title": ttl, "business": biz, "type": ttype, "stem": stem,
-            "text": red_text, "tags": tags_for(biz, flags)}
+            "text": red_text, "tags": tags_for(biz, flags),
+            "candidates": extract_candidates(red_text)}
+    result["candidate_counts"] = {k: len(v) for k, v in meta["candidates"].items()}
     raw_md, proc_md = build_raw_md(meta), build_processed_md(meta)
     for doc in (raw_md, proc_md):
         if diff_risk.scan_secret_lines(doc):
