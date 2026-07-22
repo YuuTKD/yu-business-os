@@ -1,6 +1,7 @@
 """Tests for the PLAUD file → Obsidian 10_PLAUD importer. Pure/local; a temp dir
 stands in for the vault (no real vault, no network)."""
 
+import importlib.util
 import os
 import sys
 import tempfile
@@ -43,23 +44,18 @@ class ExtractTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             fi.extract_text(_w(d, "a.xyz", "x"))
 
+    @unittest.skipIf(importlib.util.find_spec("docx") is not None, "python-docx present")
     def test_docx_missing_lib_stops(self):
+        # when python-docx is absent, .docx extraction must STOP cleanly (not crash)
         d = tempfile.mkdtemp()
-        try:
-            import docx  # noqa
-            self.skipTest("python-docx present")
-        except Exception:
-            with self.assertRaises(SystemExit):
-                fi.extract_text(_w(d, "a.docx", "x"))
+        with self.assertRaises(SystemExit):
+            fi.extract_text(_w(d, "a.docx", "x"))
 
+    @unittest.skipIf(importlib.util.find_spec("pypdf") is not None, "pypdf present")
     def test_pdf_missing_lib_stops(self):
         d = tempfile.mkdtemp()
-        try:
-            import pypdf  # noqa
-            self.skipTest("pypdf present")
-        except Exception:
-            with self.assertRaises(SystemExit):
-                fi.extract_text(_w(d, "a.pdf", "%PDF-1.4"))
+        with self.assertRaises(SystemExit):
+            fi.extract_text(_w(d, "a.pdf", "%PDF-1.4"))
 
 
 class SaveTest(unittest.TestCase):
