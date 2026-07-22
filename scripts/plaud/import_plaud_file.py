@@ -374,8 +374,12 @@ def run(mode, path, dest_root=VAULT_PLAUD, business="", title="", date=None,
         raise SystemExit("STOP: ファイル内容が空です。")
 
     sha = sha256_file(path)
+    # An explicit --date is authoritative (overrides the text/filename heuristic,
+    # which can pick a deadline mentioned in the body). Only auto-detect when the
+    # caller did not pass a date.
+    explicit_date = date is not None
     date = date or datetime.date.today().strftime("%Y-%m-%d")
-    fdate = guess_date(text, path, date)[:10]
+    fdate = date if explicit_date else guess_date(text, path, date)[:10]
     now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     ttl = title.strip() or mask_pii(redact(guess_title(text, path))[0])
     biz = classify_business(text, business)
@@ -412,7 +416,8 @@ def run(mode, path, dest_root=VAULT_PLAUD, business="", title="", date=None,
         raise SystemExit("STOP: 除外不能な重大 secret を検出。保存中止。")
 
     meta = {"source_filename": os.path.basename(path), "sha": sha, "ext": ext,
-            "recorded_at": guess_date(text, path, NO_DATA), "imported_at": now,
+            "recorded_at": date if explicit_date else guess_date(text, path, NO_DATA),
+            "imported_at": now,
             "title": ttl, "business": biz, "type": ttype, "stem": stem,
             "text": red_text, "tags": tags_for(biz, flags),
             "candidates": extract_candidates(red_text)}

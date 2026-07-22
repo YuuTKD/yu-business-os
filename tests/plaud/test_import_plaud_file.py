@@ -115,6 +115,17 @@ class SaveTest(unittest.TestCase):
         res = _apply(_w(self.d, "m.txt", "2026-07-19 の会議"), self.v)
         self.assertTrue(os.path.isfile(os.path.join(self.v, "08_月別", "2026-07.md")))
 
+    def test_explicit_date_overrides_body_dates(self):
+        # body mentions a later deadline date; explicit --date must win for the
+        # filename + month page (regression: heuristic used to override --date).
+        p = _w(self.d, "m.txt", "会議。期限は 2026-12-31 まで。")
+        res = _apply(p, self.v, date="2026-04-21")
+        self.assertTrue(res["filename"].startswith("2026-04-21_"), res["filename"])
+        self.assertTrue(os.path.isfile(os.path.join(self.v, "08_月別", "2026-04.md")))
+        # the body date must NOT become the date prefix / month bucket
+        self.assertFalse(res["filename"].startswith("2026-12"))
+        self.assertFalse(os.path.isfile(os.path.join(self.v, "08_月別", "2026-12.md")))
+
 
 class CandidateTest(unittest.TestCase):
     def setUp(self):
