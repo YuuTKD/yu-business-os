@@ -159,7 +159,7 @@ FULL = "FULL"  # sentinel meaning "run the whole suite"
 _CATEGORY_PATTERNS = (
     ("deployment_workflow", r"^\.github/workflows/|^deploy/|^scripts/release/|^configs/release/"),
     ("acquisition",         r"^scripts/acquisition/"),
-    ("automation",          r"^scripts/knowledge/|^scripts/plaud/|^scripts/business_tools/|^configs/plaud/|^config/launchagents/|^archive/|(^|/)launchd|\.plist$"),
+    ("automation",          r"^scripts/knowledge/|^scripts/plaud/|^scripts/business_tools/|^scripts/team/|^configs/team/|^configs/plaud/|^config/launchagents/|^archive/|(^|/)launchd|\.plist$"),
     ("tests",               r"^tests/"),
     ("scheduler",           r"scheduler"),
     ("secret_reference",    r"(^|/)\.env(\.|$)|credentials(\.json)?$|"
