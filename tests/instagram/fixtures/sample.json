@@ -1,0 +1,41 @@
+{
+  "profile": {
+    "username": "tachinomiya_higashimachi",
+    "name": "タチノミヤ｜那覇東町の立ち飲み",
+    "bio": "那覇・東町の立ち飲み居酒屋。名物おでんと泡盛。ご予約はプロフィールのリンクから↓",
+    "followers": 1200,
+    "follows": 340,
+    "website": "https://example.com/tachinomiya",
+    "category": "Bar"
+  },
+  "posts": [
+    {"id": "p1", "timestamp": "2026-06-02T18:30:00+0000", "media_type": "IMAGE",
+     "caption": "本日のおすすめおでん #立ち飲み #那覇 #東町 #泡盛",
+     "permalink": "https://instagram.com/p/p1", "likes": 95, "comments": 12,
+     "saves": 20, "shares": 4, "reach": 1500, "impressions": 1800},
+    {"id": "p2", "timestamp": "2026-06-05T19:00:00+0000", "media_type": "REEL",
+     "caption": "泡盛の飲み比べセット紹介 #泡盛 #那覇グルメ #立ち飲み",
+     "permalink": "https://instagram.com/p/p2", "likes": 210, "comments": 30,
+     "saves": 55, "shares": 18, "reach": 2600, "impressions": 3100},
+    {"id": "p3", "timestamp": "2026-06-08T12:00:00+0000", "media_type": "IMAGE",
+     "caption": "ランチ告知 #ランチ #那覇",
+     "permalink": "https://instagram.com/p/p3", "likes": 40, "comments": 3,
+     "saves": 5, "shares": 1, "reach": 1200, "impressions": 1400},
+    {"id": "p4", "timestamp": "2026-06-12T19:30:00+0000", "media_type": "REEL",
+     "caption": "常連さんの人気メニュー3選 #立ち飲み #泡盛 #東町",
+     "permalink": "https://instagram.com/p/p4", "likes": 180, "comments": 22,
+     "saves": 48, "shares": 12, "reach": 2400, "impressions": 2800},
+    {"id": "p5", "timestamp": "2026-06-15T20:00:00+0000", "media_type": "CAROUSEL",
+     "caption": "週末限定コースのご案内 #那覇 #宴会 #立ち飲み",
+     "permalink": "https://instagram.com/p/p5", "likes": 120, "comments": 15,
+     "saves": 30, "shares": 6, "reach": 2000, "impressions": 2300},
+    {"id": "p6", "timestamp": "2026-06-19T18:45:00+0000", "media_type": "IMAGE",
+     "caption": "新メニュー入荷 #那覇グルメ #東町",
+     "permalink": "https://instagram.com/p/p6", "likes": 70, "comments": 8,
+     "saves": 12, "shares": 2, "reach": 1600, "impressions": 1900}
+  ],
+  "competitors": [
+    {"username": "rival_izakaya_a", "followers": 3400, "posts_per_week": 5, "avg_engagement_rate": 3.2},
+    {"username": "rival_bar_b", "followers": 900, "posts_per_week": 2, "avg_engagement_rate": 6.8}
+  ]
+}
