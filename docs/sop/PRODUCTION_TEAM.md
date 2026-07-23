@@ -1,24 +1,22 @@
-# 制作・運営チーム（20役割）— 使い方
+# 売上成長オペレーションチーム — 使い方
 
-制作/集客/コンテンツ/商談の依頼を、制作統括AI(pm)が編成して進める仕組み。
-すべて**下書き・設計・チェックまで**。送信/投稿/公開/デプロイ/決済は人間承認後のみ。
+各事業の「利益を伸ばす」運営チーム。運営統括AI(ops)が事業ごとに編成し、新メニュー提案・
+リサーチ・分析・集客・価格/粗利改善・リピート施策までを**提案・分析・下書き**で出す。
+価格変更/仕入/投稿/送信/公開は人間承認後のみ。
 
 ## 起動
-Claude に「LP作って」「集客を強化して」等 → Skill `production-pm` が起動。
-または:
 ```
-python3 scripts/team/assemble_team.py --instruction "BeautyのLP作って。SEOとコピーと見積も"
+python3 scripts/team/growth_plan.py --business "TACHINOMIYA"        # 事業の成長プラン案
+python3 scripts/team/assemble_team.py --instruction "新メニューとMEO"  # 依頼から編成
 ```
-→ 編成メンバー・フェーズ計画・遵守事項を出力。
+Claude に「TACHINOMIYAの売上伸ばして」等 → Skill `production-pm`（運営統括）が起動。
 
-## 構成（SSOT: configs/team/roles.yaml）
-①pm ／ ②営業(③見積 ④要件定義) ／ ⑤市場(⑥SEO/MEO ⑦ブランド) ／
-⑧UX(⑨導線 ⑩コピー ⑪ビジュアル ⑫画像素材 ⑬モーション) ／
-⑭開発(⑮CMS) ／ ⑱公開(⑯技術品質 ⑰法令) ／ ⑲分析(⑳納品後支援)
+## 12役割（SSOT: configs/team/roles.yaml）
+①運営統括 ②商品開発 ③市場リサーチ ④データ分析 ⑤集客(⑥MEO ⑦SNS ⑧口コミ・紹介)
+⑨収益設計 ⑩顧客成功(⑪失客復活) ⑫営業。
 
-## 既存ツール連携
-見積=catering_quote_draft / コピー=sns-post-quality-check / 画像=image-library-manager /
-品質・公開=pre-deploy-qa / 納品後=gbp_review_reply_draft・catering_post_event_followup。
+## 事業タイプ別テンプレ
+立ち飲み/ケータリング/サロン/火鍋/コンサル/AIネット の「効くレバー」と新メニュー案を内蔵。
 
 ## 安全
-指示解析→編成→計画まで自動。実装/投稿/公開/送信は各承認後。secret/個人情報は出力しない。
+提案・分析・下書きまで。実行（価格/投稿/送信/仕入）は各承認後。secret/個人情報は出さない。

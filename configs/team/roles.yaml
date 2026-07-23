@@ -1,360 +1,318 @@
-# YU 制作・運営チーム — 役割 SSOT（20役割 / 6ディビジョン + PM）
-# 制作統括AI(pm) が指示を解析し、必要な役割だけ編成して進行管理する。
-# 共通ガードレール: 送信/投稿/公開/デプロイ/決済は人間承認後のみ。secret/個人情報は出力しない。
-# 注意: 本ファイルは block style のみ（CI の簡易 YAML パーサは inline flow を非対応）。
+# YU 売上成長オペレーションチーム — 役割 SSOT
+# 各事業の「利益を伸ばす」ための運営チーム。運営統括AI(ops)が事業ごとに編成し、
+# 新メニュー提案・市場リサーチ・売上/原価分析・集客・価格/粗利改善・リピート施策
+# までを行う。すべて**提案・分析・下書きまで**。投稿/送信/価格変更/仕入変更/公開は人間承認後のみ。
+# 注意: block style のみ（CI の簡易 YAML パーサは inline flow を非対応）。
 version: 1
 
 common_guardrails:
-  - 送信・投稿・公開・デプロイ・見積送付・決済は人間承認後のみ
+  - 価格変更・仕入変更・投稿・送信・公開・決済は人間承認後のみ（提案・分析まで）
   - secret/token/credentials/個人情報を出力・保存しない
-  - 事実に基づき、不明は「未確認」とし推測しない
+  - 数値は入力・既存データに基づく。不明は「未確認」とし推測で断定しない
 
-divisions:
-  - id: sales
-    num: 2
-    name_ja: 営業（商務・要件統括）
-  - id: research
-    num: 5
-    name_ja: 市場（市場・成長戦略統括）
-  - id: ux
-    num: 8
-    name_ja: UX（クリエイティブ統括）
-  - id: fe
-    num: 14
-    name_ja: 開発（開発・統合統括）
-  - id: publish
-    num: 18
-    name_ja: 公開（品質・リスク統括）
-  - id: analytics
-    num: 19
-    name_ja: 分析（グロース・顧客成功統括）
+# 事業タイプ別の「効く打ち手」テンプレ（growth_plan が参照）
+business_types:
+  izakaya:
+    label: 立ち飲み・居酒屋
+    match:
+      - 立ち飲み
+      - タチノミヤ
+      - tachinomiya
+      - 居酒屋
+      - バー
+      - 東町
+    menu_ideas:
+      - 原価率の低い「名物一品」＋ドリンクのセット化で客単価UP
+      - 曜日・時間帯限定の集客メニュー（暇な時間帯を埋める）
+      - 常連向け「今月の新作」ローテーションで再来動機
+    levers:
+      - 客単価
+      - 回転
+      - 曜日時間帯の平準化
+      - 常連リピート
+  catering:
+    label: ケータリング
+    match:
+      - ケータリング
+      - catering
+      - 仕出し
+      - パーティー
+    menu_ideas:
+      - 人数帯別パッケージ（10/20/30名）で見積即答→受注率UP
+      - 季節・イベント別の限定プランで単価UP
+      - 定例契約（四半期）で幹事の手間を減らしLTV向上
+    levers:
+      - 受注率
+      - 平均単価
+      - リピート契約
+      - 紹介
+  salon:
+    label: 美容・脱毛サロン
+    match:
+      - tree beauty
+      - ビューティ
+      - 脱毛
+      - サロン
+      - エステ
+    menu_ideas:
+      - 回数券・サブスクで前受け＆継続率UP
+      - 部位追加・ホームケア物販でアップセル
+      - 初回→2回目の再来導線（次回予約特典）
+    levers:
+      - 継続率
+      - 客単価
+      - 次回予約率
+      - 口コミ
+  hotpot:
+    label: 火鍋・飲食
+    match:
+      - 琉球火鍋
+      - 火鍋
+      - hot pot
+    menu_ideas:
+      - コース＋飲み放題のセットで単価安定
+      - 締めメニュー・追加具材のアップセル
+      - 平日限定・宴会予約の獲得
+    levers:
+      - 客単価
+      - 宴会予約
+      - 原価率
+      - リピート
+  consulting:
+    label: コンサル・BtoB
+    match:
+      - コンサル
+      - consult
+      - btob
+      - 顧問
+    menu_ideas:
+      - 単発→継続顧問へのアップセル設計
+      - 成果連動・パッケージ化で受注しやすく
+      - 既存顧客からの紹介プログラム
+    levers:
+      - 受注率
+      - 単価
+      - 継続率
+      - 紹介
+  net_business:
+    label: AIネットビジネス
+    match:
+      - aiネット
+      - ネットビジネス
+      - 物販
+      - せどり
+    menu_ideas:
+      - 高粗利商品の比率を上げる商品構成見直し
+      - LTV重視のリピート導線（同梱・フォロー）
+      - 広告→LP→CVの各段階の改善
+    levers:
+      - 粗利率
+      - LTV
+      - CVR
+      - 広告効率
 
 roles:
   - num: 1
-    id: pm
-    name_ja: 制作統括AI
+    id: ops
+    name_ja: 運営統括AI
     division: ""
     parent: ""
-    mission: 指示解析・チーム編成・進行管理・品質と納期の統括
+    mission: 事業ごとに利益成長を統括。KPI設定・打ち手の優先順位・進行管理
     outputs:
-      - 編成表
-      - フェーズ計画
-      - 進捗サマリ
+      - 成長プラン
+      - 優先順位
+      - 要判断Yes/No
     keywords: []
 
   - num: 2
-    id: sales
-    name_ja: 営業統括
-    division: sales
-    parent: pm
-    mission: 商務・要件の統括（受注要件と提供価値の整合）
+    id: product
+    name_ja: 商品開発統括
+    division: product
+    parent: ops
+    mission: 新メニュー・新商品・セット/コースの提案（利益率を意識）
     outputs:
-      - 要件整理
-      - 進め方提案
+      - 新メニュー案
+      - セット/コース案
+    keywords:
+      - 新メニュー
+      - メニュー
+      - 商品
+      - 新商品
+      - セット
+      - コース
+      - 開発
+  - num: 3
+    id: research
+    name_ja: 市場リサーチ統括
+    division: research
+    parent: ops
+    mission: 市場・競合・トレンド・顧客ニーズの調査観点を提示
+    outputs:
+      - リサーチ観点
+      - 競合比較案
+    keywords:
+      - リサーチ
+      - 市場
+      - 競合
+      - トレンド
+      - ニーズ
+      - 調査
+  - num: 4
+    id: analytics
+    name_ja: データ分析統括
+    division: analytics
+    parent: ops
+    mission: 売上・客数・客単価・原価・粗利・曜日時間帯の分析観点とKPIを提示
+    outputs:
+      - 分析KPI
+      - 見るべき数値
+    keywords:
+      - 分析
+      - 売上
+      - 客単価
+      - 原価
+      - 粗利
+      - 利益
+      - kpi
+      - データ
+    skills:
+      - core/profit_leak.py
+      - core/cash_flow.py
+  - num: 5
+    id: marketing
+    name_ja: 集客統括
+    division: marketing
+    parent: ops
+    mission: 集客チャネル（MEO/SNS/口コミ）の施策設計（投稿は人間承認）
+    outputs:
+      - 集客施策案
+    keywords:
+      - 集客
+      - 広告
+      - マーケ
+      - 認知
+    skills:
+      - core/sns_pdca.py
+      - core/growth_engines.py
+  - num: 6
+    id: meo
+    name_ja: MEO
+    division: marketing
+    parent: marketing
+    mission: Googleマップ・GBP最適化と口コミ獲得の施策
+    outputs:
+      - MEO施策案
+    keywords:
+      - meo
+      - マップ
+      - gbp
+      - google
+      - 地図
+  - num: 7
+    id: sns
+    name_ja: SNS集客
+    division: marketing
+    parent: marketing
+    mission: SNS投稿の勝ち筋・頻度・テーマ設計（下書き・投稿は承認）
+    outputs:
+      - SNS施策案
+    keywords:
+      - sns
+      - instagram
+      - threads
+      - 投稿
+      - フォロワー
+    skills:
+      - skills/sns-post-quality-check
+  - num: 8
+    id: review_referral
+    name_ja: 口コミ・紹介
+    division: marketing
+    parent: marketing
+    mission: 口コミ獲得・返信・紹介プログラムの設計（投稿は承認）
+    outputs:
+      - 口コミ/紹介施策案
+    keywords:
+      - 口コミ
+      - レビュー
+      - 紹介
+      - リファラル
+    skills:
+      - core/review_referral.py
+      - scripts/business_tools/gbp_review_reply_draft.py
+  - num: 9
+    id: pricing
+    name_ja: 収益設計
+    division: pricing
+    parent: ops
+    mission: 価格戦略・原価/粗利改善・アップセル/セット設計（変更は承認）
+    outputs:
+      - 価格/粗利改善案
+    keywords:
+      - 価格
+      - 値付け
+      - 粗利
+      - 原価率
+      - アップセル
+      - 単価
+  - num: 10
+    id: crm
+    name_ja: 顧客成功統括
+    division: crm
+    parent: ops
+    mission: リピート・再来・LTV向上・失客復活の施策設計（送信は承認）
+    outputs:
+      - リピート施策案
+    keywords:
+      - リピート
+      - 再来
+      - ltv
+      - 顧客維持
+      - 常連
+  - num: 11
+    id: winback
+    name_ja: 失客復活
+    division: crm
+    parent: crm
+    mission: 離脱顧客の復活オファー・声かけ下書き（送信は承認）
+    outputs:
+      - 失客復活下書き
+    keywords:
+      - 失客
+      - 復活
+      - 離脱
+      - 休眠
+    skills:
+      - core/growth_engines.py
+      - scripts/business_tools/catering_post_event_followup.py
+  - num: 12
+    id: sales
+    name_ja: 営業
+    division: sales
+    parent: ops
+    mission: BtoB商談・見積・受注の設計（見積ドラフト作成・送信は承認）
+    outputs:
+      - 見積ドラフト
+      - 商談メモ
     keywords:
       - 営業
       - 商談
-      - 受注
-      - 案件
-      - 相談
-      - 依頼
-  - num: 3
-    id: quote
-    name_ja: 見積
-    division: sales
-    parent: sales
-    mission: 人数・予算・内容から見積ドラフトを作成（送信しない）
-    outputs:
-      - 見積ドラフト
-    keywords:
       - 見積
-      - 価格
-      - 費用
-      - 予算
-      - 料金
+      - 受注
+      - 法人
     skills:
       - scripts/business_tools/catering_quote_draft.py
-  - num: 4
-    id: requirements
-    name_ja: 要件定義
-    division: sales
-    parent: sales
-    mission: 目的・対象・成功指標・制約を言語化し要件書ドラフト化
-    outputs:
-      - 要件定義ドラフト
-    keywords:
-      - 要件
-      - 仕様
-      - 目的
-      - ゴール
-      - スコープ
 
-  - num: 5
-    id: research
-    name_ja: 市場統括
-    division: research
-    parent: pm
-    mission: 市場・競合・成長戦略の統括
-    outputs:
-      - 市場メモ
-      - 戦略案
-    keywords:
-      - 市場
-      - 競合
-      - 戦略
-      - 成長
-      - リサーチ
-  - num: 6
-    id: seo_meo
-    name_ja: SEO/MEO
-    division: research
-    parent: research
-    mission: 検索・地図集客の設計（キーワード・GBP最適化案）
-    outputs:
-      - SEO/MEO施策案
-    keywords:
-      - seo
-      - meo
-      - 検索
-      - 集客
-      - gbp
-      - マップ
-      - キーワード
-  - num: 7
-    id: brand
-    name_ja: ブランド
-    division: research
-    parent: research
-    mission: ブランド定義・トーン&マナー・訴求軸の整理
-    outputs:
-      - ブランドガイド案
-    keywords:
-      - ブランド
-      - トンマナ
-      - コンセプト
-      - 世界観
-
-  - num: 8
-    id: ux
-    name_ja: UX統括
-    division: ux
-    parent: pm
-    mission: 体験・導線・クリエイティブの統括
-    outputs:
-      - クリエイティブ方針
-    keywords:
-      - ux
-      - デザイン
-      - クリエイティブ
-      - 体験
-  - num: 9
-    id: ux_flow
-    name_ja: 導線設計
-    division: ux
-    parent: ux
-    mission: 情報設計・画面遷移・CVまでの導線設計
-    outputs:
-      - ワイヤー/導線案
-    keywords:
-      - 導線
-      - 画面
-      - 遷移
-      - ワイヤー
-      - 情報設計
-      - cv
-  - num: 10
-    id: copy
-    name_ja: コピー
-    division: ux
-    parent: ux
-    mission: 見出し・本文・CTA のコピー作成（下書き）
-    outputs:
-      - コピー案
-    keywords:
-      - コピー
-      - 文章
-      - キャッチ
-      - 見出し
-      - 原稿
-      - cta
-    skills:
-      - skills/sns-post-quality-check
-  - num: 11
-    id: visual
-    name_ja: ビジュアル
-    division: ux
-    parent: ux
-    mission: レイアウト・配色・トーンのビジュアル設計
-    outputs:
-      - ビジュアル指示
-    keywords:
-      - ビジュアル
-      - レイアウト
-      - 配色
-      - デザイン案
-  - num: 12
-    id: assets
-    name_ja: 画像・素材
-    division: ux
-    parent: ux
-    mission: 画像・素材の在庫確認と手配（生成しない/在庫優先）
-    outputs:
-      - 素材リスト/撮影依頼
-    keywords:
-      - 画像
-      - 素材
-      - 写真
-      - 撮影
-    skills:
-      - skills/image-library-manager
-  - num: 13
-    id: motion
-    name_ja: モーション
-    division: ux
-    parent: ux
-    mission: 動き・アニメーションの演出方針
-    outputs:
-      - モーション指示
-    keywords:
-      - モーション
-      - アニメーション
-      - 動画
-      - 演出
-
-  - num: 14
-    id: fe
-    name_ja: 開発統括
-    division: fe
-    parent: pm
-    mission: 実装・統合の統括
-    outputs:
-      - 実装計画
-    keywords:
-      - 開発
-      - 実装
-      - サイト
-      - lp
-      - コーディング
-      - フロント
-  - num: 15
-    id: cms
-    name_ja: CMS連携
-    division: fe
-    parent: fe
-    mission: CMS/フォーム/計測タグ等の連携設計
-    outputs:
-      - 連携設計
-    keywords:
-      - cms
-      - wordpress
-      - フォーム
-      - 計測
-      - タグ
-      - 連携
-
-  - num: 16
-    id: tech_quality
-    name_ja: 技術品質
-    division: publish
-    parent: publish
-    mission: 表示・リンク・速度・アクセシビリティ等の品質チェック
-    outputs:
-      - 品質チェック結果
-    keywords:
-      - 品質
-      - テスト
-      - 表示
-      - リンク
-      - 速度
-    skills:
-      - skills/pre-deploy-qa
-  - num: 17
-    id: legal
-    name_ja: 法令確認
-    division: publish
-    parent: publish
-    mission: 景表法・薬機法・著作権等の表現リスク確認（弁護士判断は別）
-    outputs:
-      - 法令チェック結果
-    keywords:
-      - 法令
-      - 薬機
-      - 景表
-      - 著作権
-      - 規約
-      - コンプラ
-  - num: 18
-    id: publish
-    name_ja: 公開統括
-    division: publish
-    parent: pm
-    mission: 品質・リスク・公開可否の統括（公開は人間承認）
-    outputs:
-      - 公開判定
-      - チェック結果
-    keywords:
-      - 公開
-      - リリース
-      - 品質
-      - リスク
-      - 承認
-    skills:
-      - skills/pre-deploy-qa
-
-  - num: 19
-    id: analytics
-    name_ja: 分析統括
-    division: analytics
-    parent: pm
-    mission: 計測・改善・顧客成功の統括
-    outputs:
-      - 分析レポート
-      - 改善案
-    keywords:
-      - 分析
-      - 計測
-      - 改善
-      - グロース
-      - kpi
-      - データ
-  - num: 20
-    id: aftercare
-    name_ja: 納品後支援
-    division: analytics
-    parent: analytics
-    mission: 納品後のフォロー・口コミ返信・追加提案の下書き
-    outputs:
-      - フォロー下書き
-      - 返信下書き
-    keywords:
-      - 納品後
-      - フォロー
-      - 口コミ
-      - レビュー
-      - 追客
-      - 保守
-    skills:
-      - scripts/business_tools/catering_post_event_followup.py
-      - scripts/business_tools/gbp_review_reply_draft.py
-
-# 標準フェーズ順（編成時にこの順で並べる）
+# 標準フェーズ順（利益成長の進め方）
 phase_order:
-  - requirements
   - research
-  - seo_meo
-  - brand
-  - ux
-  - ux_flow
-  - copy
-  - visual
-  - assets
-  - motion
-  - fe
-  - cms
-  - tech_quality
-  - legal
-  - publish
   - analytics
-  - aftercare
-  - quote
+  - product
+  - pricing
+  - marketing
+  - meo
+  - sns
+  - review_referral
+  - crm
+  - winback
   - sales

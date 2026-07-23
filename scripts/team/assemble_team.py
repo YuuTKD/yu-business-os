@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""制作統括AI(pm) — 指示を解析してチームを編成し、進行計画を出す。
+"""運営統括AI(ops) — 依頼を解析して運営チームを編成し、進行計画を出す。
 
-指示テキストからキーワードで必要な役割を選び、標準フェーズ順に並べた編成表と
-進行計画を返す。実装・投稿・公開・送信は行わない（計画と役割割当まで）。
+依頼テキストからキーワードで必要な役割（商品開発/リサーチ/分析/集客/収益設計/顧客成功/営業）
+を選び、標準フェーズ順に並べた編成表と進行計画を返す。価格変更・投稿・公開・送信は行わない
+（提案・分析・下書きと役割割当まで）。
 
 使用例:
-  python3 scripts/team/assemble_team.py --instruction "BeautyのLP作って。SEOと見積も"
+  python3 scripts/team/assemble_team.py --instruction "TACHINOMIYAの新メニューとMEO"
 """
 
 from __future__ import annotations
@@ -38,14 +39,23 @@ def load_roles(path=ROLES_PATH):
     return data, roles
 
 
-def select_roles(instruction, roles, explicit=None):
-    """Return the set of engaged role ids. PM(①) is always the lead.
+def lead_id(roles):
+    """The root role (parent が空) をリードとする。"""
+    for rid, r in roles.items():
+        if not r.get("parent"):
+            return rid
+    return next(iter(roles))
 
-    explicit: 明示指定された division/role id のリスト（キーワードより優先）。
-    キーワード該当なし → PM + requirements のみ（要ヒアリング）。
+
+def select_roles(instruction, roles, explicit=None):
+    """Return the set of engaged role ids. リード（統括）は常に含む。
+
+    explicit: 明示指定された role id のリスト（キーワードより優先）。
+    キーワード該当なし → リード + research/analytics（まず調査・分析から）。
     """
     text = (instruction or "").lower()
-    engaged = {"pm"}
+    lead = lead_id(roles)
+    engaged = {lead}
     if explicit:
         for e in explicit:
             if e in roles:
@@ -61,9 +71,8 @@ def select_roles(instruction, roles, explicit=None):
                 if p:
                     engaged.add(p)   # 子が動くなら統括も編成
                 break
-    # 何も当たらなければ最小編成（PM + 要件定義）で必ずヒアリングから
-    if engaged == {"pm"}:
-        engaged.update({"sales", "requirements"})
+    if engaged == {lead}:
+        engaged.update({rid for rid in ("research", "analytics") if rid in roles})
         return engaged, True
     return engaged, False
 
@@ -81,6 +90,7 @@ def build_plan(engaged, data, roles):
 
 def assemble(instruction, explicit=None, path=ROLES_PATH):
     data, roles = load_roles(path)
+    lead = lead_id(roles)
     engaged, needs_hearing = select_roles(instruction, roles, explicit)
     phases = build_plan(engaged, data, roles)
     engaged_detail = sorted(
@@ -88,7 +98,7 @@ def assemble(instruction, explicit=None, path=ROLES_PATH):
           "division": roles[i].get("division")} for i in engaged if i in roles),
         key=lambda x: x["num"])
     return {
-        "lead": {"num": 1, "id": "pm", "name": roles["pm"]["name_ja"]},
+        "lead": {"num": roles[lead]["num"], "id": lead, "name": roles[lead]["name_ja"]},
         "instruction": instruction,
         "engaged": engaged_detail,
         "phases": phases,
@@ -98,7 +108,7 @@ def assemble(instruction, explicit=None, path=ROLES_PATH):
 
 
 def to_text(a):
-    lines = [f"【制作統括AI 編成】指示: {a['instruction']}",
+    lines = [f"【運営統括AI 編成】依頼: {a['instruction']}",
              f"リード: ①{a['lead']['name']}", ""]
     lines.append("── 編成メンバー ──")
     for m in a["engaged"]:
@@ -116,7 +126,7 @@ def to_text(a):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="制作統括AI チーム編成（計画のみ）")
+    ap = argparse.ArgumentParser(description="運営統括AI チーム編成（提案・計画のみ）")
     ap.add_argument("--instruction", required=True)
     ap.add_argument("--role", action="append", default=[],
                     help="明示指定する role/division id（複数可）")
