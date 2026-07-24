@@ -16,7 +16,9 @@ export PATH="/Users/tokudayuya/google-cloud-sdk/bin:/usr/local/bin:/usr/bin:/bin
 
 # ── 設定 ────────────────────────────────────────────────────
 GCS_SRC="gs://tree-beauty-blog-images/knowledge-os/"
-LOCAL_VAULT="$HOME/Documents/YU_HOLDINGS_Knowledge_OS"
+# 保存先はホーム直下を使う。~/Documents は macOS のプライバシー保護(TCC)により
+# LaunchAgent 自動実行時に書き込み不可（Operation not permitted）となるため。
+LOCAL_VAULT="$HOME/YU_HOLDINGS_Knowledge_OS"
 LOG_FILE="$HOME/yu-business-os/logs/knowledge_sync.log"
 MAX_LOG_LINES=2000
 
@@ -39,8 +41,16 @@ rotate_log
 
 log "━━━ 同期開始 ━━━"
 
-# ── ネットワーク接続確認 ─────────────────────────────────────
-if ! ping -c 1 -W 3 storage.googleapis.com > /dev/null 2>&1; then
+# ── ネットワーク接続確認（起床直後の誤判定を避け最大3回リトライ） ──
+net_ok=0
+for _try in 1 2 3; do
+    if ping -c 1 -W 3 storage.googleapis.com > /dev/null 2>&1; then
+        net_ok=1
+        break
+    fi
+    sleep 5
+done
+if [ "$net_ok" != "1" ]; then
     log "❌ ネットワーク未接続。同期をスキップします。"
     exit 1
 fi
@@ -63,7 +73,9 @@ fi
 log "🔄 同期元: $GCS_SRC"
 log "🔄 同期先: $LOCAL_VAULT"
 
-SYNC_OUTPUT=$(gsutil -m rsync -r \
+# parallel_process_count=1: macOS の multiprocessing 不具合（bugs.python.org/issue33725）
+# による rsync 失敗を回避。マルチスレッドは有効なので速度への影響は小さい。
+SYNC_OUTPUT=$(gsutil -o "GSUtil:parallel_process_count=1" -m rsync -r \
     "$GCS_SRC" \
     "$LOCAL_VAULT/" 2>&1) || {
     log "❌ gsutil rsync 失敗"
