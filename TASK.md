@@ -6,44 +6,130 @@
 
 | 項目 | 内容 |
 |---|---|
-| **タスクID** | TASK-001 |
-| **ステータス** | DONE |
-| **担当** | Claude Code |
-| **作成日** | 2026-07-08 |
-| **完了日** | 2026-07-08 |
+| **タスクID** | TASK-015 |
+| **ステータス** | TODO（W1-1 設計文書は Claude Code 側で完了・以降を Codex が実装） |
+| **担当** | Codex（実装）/ Claude Code（設計・レビュー） |
+| **作成日** | 2026-07-27 |
+| **リスク分類** | **High**（`core/**` `configs/**` 変更 ＋ 本番 Sheets のスキーマ変更を含む）|
+| **対象事業** | `catering`（TREE's Catering）のみ |
+| **対象外・不変** | beauty / tachinomiya / ryukyu_hinabe / pasta_pasta / z1 |
 
 ### 概要
 
-Codex × Claude Code × GitHub PR 連携ワークフローの初期運用ファイルを追加する。
+TREE's Catering の「広告費ゼロ集客OS」Week 1 を実装する。既存の TREE's Catering
+ワークブック（`CATERING_SPREADSHEET_ID`）内で完結させ、**新規アプリ・新規ワークブック・
+新規依存・新規課金をいずれも発生させない**。
 
-### 背景
+### 背景と設計判断（必読）
 
-YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔・Codex を実装部隊とする役割分担を確立する。本番影響・Secret混入・既存構成破壊を防ぐ安全ゲートとして GitHub PR フローを組み込む。
+監査済み。以下3点が結論。詳細は `docs/catering-growth/repo-audit.md`。
 
-### 完了条件
+1. 既存ワークブックに `02_問い合わせ`→`03_見積`→`04_受注管理`→`06_売上管理`→
+   `07_利益管理` の14シートと営業CRM `CATERING_SALES_TARGETS`（22列・テンプレ20種）が
+   すでに存在する。**作るのは新システムではなく既存表をつなぐ配管**。
+2. **最大のギャップは UTM ではなく結合キーの欠落。** `02_問い合わせ` に主キーが無く、
+   流入元別の受注売上・粗利が現状算出不能。ここが Week 1 の本命。
+3. この OS に Web UI は無い。仕様書 §6「画面要件」は
+   **Sheets のタブ設計 ＋ LINE の `OWNER_ONLY` 配信**として実装する（オーナー了承済）。
 
-- [ ] `CLAUDE.md` 作成済み
-- [ ] `AGENTS.md` 作成済み
-- [ ] `TEAM_RULES.md` 作成済み
-- [ ] `TASK.md` 作成済み（このファイル）
-- [ ] `REPORT.md` 作成済み
-- [ ] `.github/pull_request_template.md` 作成済み
+### 正典文書（実装前に必ず読む）
+
+| 文書 | 内容 |
+|---|---|
+| `docs/catering-growth/YU_BusinessOS_TREEs_Catering_ZeroCost_Growth_Sprint.md` | 上位仕様 |
+| `docs/catering-growth/repo-audit.md` | 監査結果・再利用可能な既存機能 |
+| `docs/catering-growth/vocabulary.md` | **語彙の正典**（流入元12/ステータス13/種別11/UTM規則/ID形式/失注理由8）|
+| `docs/catering-growth/sheet-schema.md` | **表の正典**（追加列・結合キー・数字の正本・マイグレーション手順）|
+| `docs/catering-growth/operations-sop.md` | 運用手順・役割分担 |
+
+**コードとこれら文書が矛盾した場合、文書が正しい。** 文書を変えたいときは実装を止めて
+Claude Code に確認する（勝手に語彙やスキーマを変えない）。
+
+### 実装単位（W1-2 〜 W1-9 / 1タスク=1PR）
+
+W1-1（設計文書）は完了済み。以下を**この順に**実装する。
+
+| # | 内容 | 主な成果物 |
+|---|---|---|
+| W1-2 | 語彙のコード化 | `configs/catering_growth_vocab.py` / `tests/catering_growth/test_vocabulary.py` `test_safety.py` |
+| W1-3 | UTM URL 生成（純関数） | `core/catering_growth.py` `build_utm_url` `validate_utm_token` / `test_utm.py` |
+| W1-4 | 現状シート棚卸し（**read-only**） | `core/catering_growth.py` `inspect()` / `test_inspect.py` |
+| W1-5 | CRM 列拡張（+11列） | `ensure_columns()` / `core/catering_sales.py` 更新 / `test_ensure_columns.py` |
+| W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | `migrate_funnel_keys()` / `test_funnel_keys.py` |
+| W1-7 | CSV import/export | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
+| W1-8 | 次アクション抽出（8ルール） | `next_actions()` ＋ `daily_action_commander` への供給 / `test_next_actions.py` |
+| W1-9 | `GROWTH_DASHBOARD`（流入元別 受注/売上/粗利） | `aggregate_by_source()` `refresh_dashboard()` / `test_attribution.py` |
+
+各単位の受入条件は `docs/catering-growth/repo-audit.md` §8 に全項目記載。**そこを満たすこと。**
 
 ### 実装スコープ
 
-**変更してよいファイル（新規作成のみ）：**
-- `CLAUDE.md`
-- `AGENTS.md`
-- `TEAM_RULES.md`
-- `TASK.md`
-- `REPORT.md`
-- `.github/pull_request_template.md`
+**変更してよいファイル：**
+- `configs/catering_growth_vocab.py`（新規・語彙定数のみ）
+- `core/catering_growth.py`（新規・**唯一の新規 core モジュール**）
+- `core/catering_sales.py`（`CATERING_SHEETS` ヘッダに11列追記 ＋ `generate_test_data` を33列に）
+- `core/entrypoint.py`（`@app.route` を最大5本**追加のみ**。既存ルートは触らない）
+- `core/daily_action_commander.py`（catering のタスク供給元を1つ追加。**新規 Scheduler は作らない**）
+- `tests/catering_growth/**`（新規）
+- `.gitignore`（`data/catering_growth/*.csv` を追記）
+- `docs/catering-growth/**` / `TASK.md` / `REPORT.md`
 
 **変更禁止：**
-- 既存の全ファイル（`core/`, `ceo/`, `configs/`, `skills/` 等）
-- `.env.local`
-- `Dockerfile`
-- `requirements.txt`
+- `scripts/acquisition/**` — **凍結パス**（`core/governance/validator.py:91`）。触ると PR が STOP
+- `core/catering_setup.py` — ヘッダ行を上書きし追加列を消す。**実行も変更も禁止**
+- `requirements.txt` / `requirements.lock` — **新規依存ゼロ ＝ 新規課金ゼロ**
+- `.env` / `.env.template` / `configs/business_registry.py` の ID 実値
+- `Dockerfile` / `.github/workflows/**` / `apps_script/**`
+- 他5事業に関わるコードパス
+
+### 設計制約（違反したら FIX）
+
+1. **既存シートの列は右端追加のみ。** 挿入・並べ替え・改名・削除のコードパスを実装しない。
+   理由: `core/catering_report.py:62-100` が `get_all_values()[2:]` + `r[4]` で**位置参照**している。
+2. **シート書込みを伴う全関数は `dry_run: bool = True` 既定。** dry-run では1セルも書かない。
+3. **純関数と I/O を分離する。** 語彙判定・UTM生成・次アクション抽出・流入元集計は
+   ネットワーク不要の純関数にし、既存のテスト規約でテスト可能にする。
+4. **`ensure_columns()` は冪等。** 2回実行して列が重複しない。
+5. **外部送信を一切実装しない。** LINE / Gmail / SNS / DM の送信コードを書かない。
+   文字列を生成して既存の配信機構に渡すだけ。
+6. **OpenAI・有料 API を使わない**（プロジェクト恒久ルール）。テンプレートは
+   固定文＋`{変数}` の文字列置換のみ。
+7. **秘密情報・spreadsheet ID 実値をコードに書かない。** LP の URL は
+   環境変数 `CATERING_LP_BASE_URL`（fallback: `business_registry` の `booking_url`）から読む。
+8. **リポジトリに個人情報を置かない。** テストデータは架空社名・`090-0000-0000` 形式のみ。
+9. **結合できなかった行を黙って落とさない。** 件数と金額を出力に含める。
+10. **既存レポートの数値を変えない。** `/catering-weekly` の受注率・粗利率が
+    列追加の前後で一致すること（列ズレ検知）。
+
+### 完了条件（W1-2 〜 W1-9 共通）
+
+- [ ] `python -m compileall -q core configs scripts tests` が通る
+- [ ] `python -m unittest discover -s tests -p "test_*.py"` が**全件 pass**（既存件数を減らさない）
+- [ ] Governance Gate が `0`（GO）または `20`（オーナー承認待ち）。**`30`（STOP）でない**
+- [ ] `tests/catering_growth/test_safety.py` が以下の不在を検証（既存 `tests/instagram/test_windsor_source.py:57` パターン）
+      — `api.line.me` / `requests.post` / `broadcast` / `openai` / `gcloud` / `method="POST"`
+- [ ] 追跡ファイルに実電話番号・実メールアドレスのパターンが無い
+- [ ] `REPORT.md` を更新（変更ファイル・テスト結果・手動確認手順・未解決事項）
+
+### 本番 Sheets 変更（W1-5 / W1-6）の追加ゲート
+
+**コードのマージと、本番シートへの適用は別。** 適用は以下の順にオーナーが行う。
+
+1. オーナーが Sheets の版履歴で復元ポイントを作成（`ファイル > 版履歴 > 現在の版に名前を付ける`）
+2. `dry_run=True` で実行 → 追加予定列の一覧をオーナーが確認
+3. **オーナー承認**
+4. `dry_run=False` で適用
+5. `/catering-weekly` を実行し**受注率・粗利率が適用前と一致することを確認**。不一致なら版履歴から戻す
+
+Codex は 1〜5 を**実行しない**。dry-run 出力を見せるところまでが担当。
+
+### 未解決事項（実装前にオーナー確認が必要）
+
+| # | 内容 | ブロックするタスク |
+|---|---|---|
+| 1 | **ケータリング LP の URL** — `configs/business_registry.py:79` の `booking_url` が空。UTM のベース URL に必須 | W1-3 の手動確認 / 運用開始 |
+| 2 | **本番ワークブックの実データ量が未確認** — サンプル行のみか実データありか不明 | W1-5 / W1-6 の適用（W1-4 の read-only 棚卸しで解消） |
+| 3 | デプロイ済み `trees-catering-ai` の `SPREADSHEET_ID` env が上書きされていないか未確認 | W1-9（CRM とファネルが同一ワークブックである前提） |
 
 ### 確認事項
 
@@ -56,12 +142,27 @@ YU HOLDINGS の AI-EOS を安全に拡張するため、Claude Code を司令塔
 新しいタスクはこのセクション以下に追記する。
 
 ```
-## TASK-015（タスクタイトル）
+## TASK-016（タスクタイトル）
 ステータス: TODO
 概要:
 完了条件:
 スコープ:
 ```
+
+## TASK-015 TREE's Catering 広告費ゼロ集客OS — Week 1
+ステータス: TODO（→ 上部「現在のタスク」に詳細）
+概要:
+  既存 catering ワークブック内で流入元→問い合わせ→見積→受注→売上→粗利をつなぐ。
+  W1-1（設計文書4本）は Claude Code 側で完了。W1-2〜W1-9 を Codex が実装。
+完了条件:
+  - [x] W1-1 設計文書（vocabulary / sheet-schema / operations-sop / contacts_template）
+  - [ ] W1-2〜W1-9（受入条件は docs/catering-growth/repo-audit.md §8）
+スコープ:
+  - configs/catering_growth_vocab.py · core/catering_growth.py（新規）
+  - core/catering_sales.py（+11列）· core/entrypoint.py（ルート追加のみ）
+  - core/daily_action_commander.py（タスク供給元1件追加）· tests/catering_growth/
+  - docs/catering-growth/ · .gitignore · REPORT.md · TASK.md
+  変更禁止: scripts/acquisition/**（凍結）· core/catering_setup.py · requirements*.txt
 
 ## TASK-014 YU Business OS 2.0 Phase B2-8A — Catering deploy 承認の監査台帳記録
 ステータス: DONE（2026-07-14 / feat/yu-business-os-2-catering-deploy-approval）
