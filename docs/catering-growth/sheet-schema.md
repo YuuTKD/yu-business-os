@@ -250,6 +250,7 @@ ensure_columns(ss, シート名, 欲しい列名リスト, dry_run=True)
 | 結合キー列の追加 | `/catering-funnel-keys` | **dry-run**（`?dry_run=0` で適用） |
 | 既存行への番号の埋め戻し | `/catering-backfill-inquiry-ids` | **dry-run**（`?dry_run=0` で適用） |
 | UTM 付き URL の生成 | `/catering-utm?source=…&medium=…&campaign=…&content=…` | 読み取りのみ |
+| CSV 一括投入（100件） | `/catering-import-contacts`（POST・本文に text/csv） | **dry-run**（`?dry_run=0` で適用） |
 
 > `/catering-sales-setup` だけ既定が「書き込む」なのは、W1-2 以前から存在する
 > エンドポイントで既存の挙動を変えないため。新規の2本は**dry-run 既定**にしている。

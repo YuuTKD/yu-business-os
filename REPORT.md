@@ -2,6 +2,145 @@
 
 ---
 
+## TASK-015 W1-7 完了報告 — CSV 一括投入
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/catering-growth-csv-import |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-27 |
+| **リスク分類** | **High**（`core/**` 変更） |
+| **対象** | `catering`（TREE's Catering）のみ |
+| **本番シートへの投入** | **未実施**（`/catering-import-contacts` は dry-run 既定） |
+
+### 何を実現したか
+
+仕様書 §7 Week 1 の完了条件「**100件の連絡先をCSVで投入可能**」。
+`docs/catering-growth/contacts_template.csv`（17列・ヘッダのみ）に記入した CSV を
+`CATERING_SALES_TARGETS` へ一括投入する。
+
+### 変更内容
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/catering_growth.py` | MODIFIED | `CSV_COLUMNS` / `CSV_REQUIRED` ／純関数 `parse_contacts_csv` `_parse_int` `_norm_cell` ／ I/O `import_contacts` `_next_contact_seq` `_now_jst_str` |
+| `core/entrypoint.py` | MODIFIED | `/catering-import-contacts`（POST・**dry-run 既定**） |
+| `tests/catering_growth/test_csv_import.py` | NEW | 49件 |
+| `tests/catering_growth/test_utm.py` | MODIFIED | 安全性テストを恒久的な不変条件に書き換え（下記） |
+| `.gitignore` | MODIFIED | `data/catering_growth/` を除外（顧客CSVの誤コミット防止） |
+| `docs/catering-growth/sheet-schema.md` `operations-sop.md` `TASK.md` | MODIFIED | 実エンドポイントと運用注意を追記 |
+
+### 設計上の判断
+
+1. **1行の不備で全体を落とさない。** 行ごとに reject し、**行番号と理由**を返す。
+   100件のうち3件がダメなら97件は通す。全部落とすと現場が使えない。
+2. **不正な値を黙って既定値に寄せない。** 流入元コードが `インスタ` のような語彙外の値なら
+   reject する。黙って `other` にすると**入力ミスに永久に気付けなくなる**。
+   一方で**空欄**は既定値で埋める（空欄は集計を壊すため許さない）。
+3. **重複を弾く。** 電話 / メール / Instagram / 対象先名 のいずれか一致で重複判定。
+   CSV 内の重複と、**既存シート行との重複**の両方を見る（大小文字無視）。
+4. **`対象先ID` は既存の最大値から continue。欠番は再利用しない。**
+   再利用すると過去の売上との紐付けが切れる。
+5. **既存行を書き換えない。** 追加は末尾への `append_rows` のみ。
+6. **顧客CSVをリポジトリに置かない。** `.gitignore` に追加し、テストで除外設定の存在を検証。
+
+### 実装中に発見した危険な挙動と対策
+
+**CSV の引用符なしカンマで列が全部ずれる問題。**
+
+`推定単価` に `200,000` と書くと CSV としては2列に割れ、**以降の列が全部1つずれる**。
+`優先度` の位置に別の値が入る形で、しかも**エラーにならず通ってしまう**
+（最悪の「静かに壊れる」パターン）。
+
+対策として `csv.DictReader` の余剰フィールド（`None` キー）を検出し、
+**列数がヘッダより多い行を理由つきで reject** するようにした（`test_23b`）。
+
+```
+❌ 2 行: 列数がヘッダ(17列)より多いです（+1）。
+        数値の桁区切りカンマは引用符で囲むか、カンマ無しで書いてください
+```
+
+表計算ソフトからのCSV書き出しなら自動で `"200,000"` と引用符が付くので通常は起きないが、
+手書きCSVで起こり得る。`operations-sop.md` にも注意を明記した。
+
+### `import_contacts` をオフラインでテストできるようにした
+
+初版は関数先頭で `from core.catering_sales import CATERING_SHEETS` していたため、
+`core.catering_sales` が `gspread` を import する影響で**テストが gspread 必須**になっていた。
+シートから読んだ見出しを使い、**読めなかった場合のみ**シート定義を参照する形に変更。
+これで `import_contacts` の全7ケースが gspread 未インストール環境でも実行できる。
+
+### 既存テストの書き換え（緩めたのではなく不変条件を精緻化）
+
+`test_utm.py` の安全性テストは W1-3 → W1-6 → W1-7 でスコープが広がるたびに
+「書き込みが無いこと」を検証していたため2回書き換えが必要になった。
+**今回は恒久的に成立する不変条件に置き換えた。**
+
+| テスト | 内容 |
+|---|---|
+| `test_39_never_creates_or_deletes_sheets` | `add_worksheet` / `del_worksheet` / `batch_clear` 等の不在。**シートを作らない・消さない** |
+| `test_39b_never_modifies_existing_rows_wholesale` | `delete_rows` / `insert_rows` / `sort(` / `resize(` の不在。**既存行を動かさない** |
+| `test_40b_write_functions_default_to_dry_run` | 書き込み系関数の `dry_run` 既定が True |
+
+これらはスコープが広がっても書き換え不要な性質になっている。
+
+### テスト結果
+
+`requirements.lock` から依存を入れたクリーン環境（Python 3.11）。
+
+```
+python -m unittest discover -s tests -p "test_*.py"
+→ Ran 758 tests ... OK      （失敗0 / エラー0 / スキップ0）
+python -m compileall -q core configs scripts tests   → OK
+```
+
+内訳: 既存 708件 + 新規 49件 + 書き換え1件 = 758件。
+
+### 手動確認（フェイクシート・実シート未接触）
+
+5行の CSV（正常2 / 不正2 / 重複1）を投入した結果:
+
+```
+accepted 2 / rejected 2 / duplicate 1
+
+✅ tc_0001 株式会社サンプル商事  種別:partner_space 流入元:partner_space 優先度:A READY_TO_CONTACT
+✅ tc_0002 サンプルホテル二号    種別:hotel_villa   流入元:other        優先度:B NEW
+   （種別・流入元・優先度が空欄 → カテゴリ「ホテル」から種別を推定し既定値で補完）
+❌ 4 行: 流入元コードが語彙外です: 'インスタ' / 優先度は A/B/C です: 'Z' / 見込み確度は0〜100の数値です: '999'
+   （複数の誤りを全部返す）
+❌ 5 行: 対象先名が空です
+⚠️ 6 行: 電話='090-0000-0001' が CSV 2行目 と重複
+```
+
+ルート登録: `/catering-import-contacts`（catering ルート 13 → 14 / 総ルート 169 → 170）
+
+### 安全性
+
+- **本番シートへの投入を実行していない**（dry-run 既定）
+- **シートを作らない・消さない / 既存行を動かさない**（テストで手段の不在を検証）
+- **顧客CSVをリポジトリに置かない**（`.gitignore` 追加＋テストで検証）
+- テストデータは架空社名と `090-0000-0000` 形式・`example.test` ドメインのみ
+  （テスト自身が実PIIの不在を検証: `test_46`）
+- 外部送信なし / `requirements.txt` 不変 = **新規課金ゼロ**
+- `scripts/acquisition/**`（凍結パス）未変更 / 他5事業に影響なし
+
+### 未解決事項・人間判断が必要な項目
+
+| # | 内容 |
+|---|---|
+| 1 | **本番シートへの適用（33列作成・結合キー・CSV投入）— 未実施。ゆうさんの指示により保留中** |
+| 2 | **ケータリング LP の URL** — 未設定 |
+| 3 | **100件の連絡先リスト本体** — 過去顧客は `05_顧客台帳` が0行のため掘り起こしが必要 |
+| 4 | ¥211,500 のオーダー弁当の発注元 |
+
+### 次に実装すべきタスク
+
+W1-8（次アクション抽出の8ルール）。`next_actions()` を純関数で実装し、
+既存の `core/daily_action_commander.py` の catering タスク供給元に1件追加する。
+**新規 Scheduler は作らない**（既存の09:00枠に相乗り）。
+
+---
+
 ## TASK-015 W1-6 完了報告 — ファネル結合キーの付与
 
 | 項目 | 内容 |

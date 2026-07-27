@@ -18,6 +18,12 @@ scripts/gbp_token_exchange.py
 scripts/gbp_verify_token.py
 scripts/test_airegi_api.py
 
+# 顧客CSV（氏名・電話・メールを含むため絶対にコミットしない）
+# 実データの置き場所は ~/YU_HOLDINGS_Knowledge_OS/catering_growth/
+# リポジトリに置くのは docs/catering-growth/contacts_template.csv（ヘッダのみ）だけ
+data/catering_growth/
+data/catering_growth/*.csv
+
 # 認証情報・鍵
 *credentials*.json
 *client_secret*.json

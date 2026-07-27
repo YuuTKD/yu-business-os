@@ -1279,6 +1279,30 @@ def catering_backfill_inquiry_ids():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/catering-import-contacts", methods=["POST"])
+def catering_import_contacts():
+    """CSV を CATERING_SALES_TARGETS へ一括投入する。
+
+    CSV 本体は POST の本文（text/csv）か form の `csv` フィールドで渡す。
+    既定は dry_run（1セルも書かない）。適用は ?dry_run=0。
+    **顧客CSVはリポジトリに置かない**（.gitignore で除外済み）。
+    """
+    try:
+        from core.catering_growth import import_contacts
+        csv_text = request.form.get("csv") or request.get_data(as_text=True) or ""
+        if not csv_text.strip():
+            return jsonify({
+                "ok": False,
+                "error": "CSV が空です。本文に text/csv を送るか form の csv に入れてください",
+            }), 400
+        result = import_contacts(SPREADSHEET_ID, CREDS_PATH, csv_text,
+                                 dry_run=_growth_dry_run())
+        return jsonify(result), 200 if result.get("ok") else 207
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/catering-utm", methods=["GET", "POST"])
 def catering_utm():
     """UTM 付き LP URL を生成して返す（読み取り専用・シートに触らない）。
