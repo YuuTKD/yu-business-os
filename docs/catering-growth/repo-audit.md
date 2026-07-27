@@ -356,7 +356,7 @@ Web UI が無いため、以下に読み替える。**これは仕様変更な�
 | `configs/catering_growth_vocab.py` | 新規 | **高（承認要）** | 語彙定数のみ。秘密情報・ID実値なし |
 | `core/catering_growth.py` | 新規 | **高（承認要）** | 唯一の新規 core モジュール |
 | `core/entrypoint.py` | 変更（追加のみ） | **高（承認要）** | `@app.route` を5本追加、既存ルートは触らない |
-| `core/catering_sales.py` | 変更（最小） | **高（承認要）** | `CATERING_SHEETS` のヘッダ定義に11列追記。**`generate_test_data` の append 行も同時に列数を合わせる（合わせないと列ズレ）** |
+| `core/catering_sales.py` | 変更（最小） | **高（承認要）** | `CATERING_SHEETS` を33列に。**`_get_or_create_sheet` の書式範囲 `A1:V1`（22列固定）を列数算出に変更**。`generate_test_data` は見出し駆動なので変更不要（下記訂正参照） |
 | `tests/catering_growth/__init__.py` | 新規 | 中 | — |
 | `tests/catering_growth/test_vocabulary.py` | 新規 | 中 | 語彙の網羅・重複なし |
 | `tests/catering_growth/test_utm.py` | 新規 | 中 | UTM生成・日本語/空白拒否 |
@@ -430,7 +430,8 @@ ensure_columns(ss, sheet_title, want_headers, dry_run=True)
 | リスク | 内容 | 対策 |
 |---|---|---|
 | **位置参照コードの列ズレ** | `core/catering_report.py:62-100` が `get_all_values()[2:]` + `r[4]` で位置参照 | **右端追加のみ**を機械的に強制（`ensure_columns` が挿入位置を持たない設計）。`test_attribution.py` で既存インデックス不変を検証 |
-| **`generate_test_data` の列数不整合** | `core/catering_sales.py:234` が固定長リストで `append` している場合、ヘッダ22→33列で右端が空になる | ヘッダ追加と同一PRで append 側も更新（**FIX条件**） |
+| ~~`generate_test_data` の列数不整合~~ | **2026-07-27 訂正: 誤りだった。** 実際は `[row_data.get(h, "") for h in header]` と**見出し駆動**で、列を増やせば自動追従し追加列は空欄で入る。列ズレは起きない | 対応不要。`tests/catering_growth/test_sheet_schema.py` で回帰を固定 |
+| **ヘッダ書式範囲のハードコード**（新規に発見） | `_get_or_create_sheet` が `ws.format("A1:V1", …)` と22列目で固定。33列にすると右端11列が未装飾で残る | 列数から算出（`col_letter(len(header))`）。`test_06_format_range_matches_column_count` で検証 |
 | `catering_setup.py` の再実行 | ヘッダ行を上書きし追加列を消す | 実行禁止をSOPに明記し、`ensure_columns` を正規の変更経路にする |
 | Governance Gate STOP | `scripts/acquisition/**` は凍結パス | 一切触らない |
 | 依存追加による課金 | — | `requirements.txt` を変更しない（新規依存ゼロ） |
@@ -491,9 +492,9 @@ ensure_columns(ss, sheet_title, want_headers, dry_run=True)
 - **テスト**: `test_inspect.py` — スタブ `_Reg()` 相当のフェイク `Spreadsheet` を注入（既存 `tests/business_config/test_activation_plan.py:66-84` の属性差し替えパターン）。実行時テストはネットワーク不要。**手動確認**: オーナー承認のうえローカルで1回実行し、実データ量とヘッダを確定して R5 を解消。
 
 ### W1-5. CRM列拡張（`ensure_columns`、dry-run→apply）
-- **内容**: `ensure_columns()` 実装 ＋ `CATERING_SALES_TARGETS` に11列追加。`core/catering_sales.py` の `CATERING_SHEETS` ヘッダと `generate_test_data` の append 行を同時更新。
+- **内容**: ~~`CATERING_SALES_TARGETS` に11列追加~~ → **W1-4.5 で33列新規作成に統合済（2026-07-27）**。`ensure_columns()` の実装は W1-6 で行う。
 - **リスク**: 高（`core/**` ＋ 本番シート書込み → **オーナー承認必須**）
-- **受入条件**: ①`dry_run=True` 既定。dry-run では**1セルも書かない**で追加予定列名を返す ②2回実行しても列が重複しない（冪等） ③既存22列の順序・名称が不変 ④中間挿入・改名・削除のコードパスが存在しない ⑤`get_all_records()` を使う既存関数（`daily_targets` `followup` `get_status`）が拡張後も同じ結果を返す ⑥`generate_test_data` の行が33列ぶん揃う
+- **受入条件**: ①`dry_run=True` 既定。dry-run では**1セルも書かない**で追加予定列名を返す ②2回実行しても列が重複しない（冪等） ③既存22列の順序・名称が不変 ④中間挿入・改名・削除のコードパスが存在しない ⑤`get_all_records()` を使う既存関数（`daily_targets` `followup` `get_status`）が拡張後も同じ結果を返す ⑥`generate_test_data` の行が33列ぶん揃う（見出し駆動なので自動。テストで固定）
 - **テスト**: `test_ensure_columns.py` — フェイクワークシートで(a)全列既存→追加0件 (b)一部欠落→欠落分のみ右端追加 (c)2回実行で冪等 (d)dry_run で書込みメソッド未呼出をアサート。**手動確認**: 版履歴で復元ポイント作成 → dry-run 出力をオーナー確認 → apply → シート目視。
 
 ### W1-6. ファネル結合キー付与（`02`/`03`/`04`、dry-run→apply）

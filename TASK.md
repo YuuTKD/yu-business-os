@@ -53,9 +53,9 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 |---|---|---|---|
 | W1-1 | 設計正典4文書 | **DONE** | `vocabulary.md` `sheet-schema.md` `operations-sop.md` `contacts_template.csv`（PR #46） |
 | W1-4 | 本番ワークブックの棚卸し | **DONE**（読み取り専用調査で代替実施） | `current-state-2026-07-27.md`。`inspect()` の実装は**不要になった**（下記参照） |
-| W1-2 | 語彙のコード化 | TODO | `configs/catering_growth_vocab.py` / `tests/catering_growth/test_vocabulary.py` `test_safety.py` |
+| W1-2 | 語彙のコード化 | **DONE** | `configs/catering_growth_vocab.py`（純定数＋純関数・import は `__future__` のみ）/ `tests/catering_growth/test_vocabulary.py`（43件） |
+| **W1-4.5** | **CRM シートを33列で作成する準備** | **DONE（コード）／本番適用は承認待ち** | `core/catering_sales.py` を33列に・書式範囲を列数算出に・`setup(dry_run=)` 追加 / `core/entrypoint.py` に `?dry_run=1` / `tests/catering_growth/test_sheet_schema.py`（16件） |
 | W1-3 | UTM URL 生成（純関数） | TODO | `core/catering_growth.py` `build_utm_url` `validate_utm_token` / `test_utm.py` |
-| **W1-4.5** | **CRMシートを本番に作成（新規）** | TODO・**コード変更ゼロ** | `/catering-sales-setup` を実行。ただし `core/catering_sales.py` の `CATERING_SHEETS` を**33列に更新してから**実行する |
 | W1-5 | ~~CRM 列拡張（+11列）~~ | **不要**（W1-4.5 に統合） | `ensure_columns()` の実装のみ残す（W1-6 で使う） |
 | W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | TODO | `ensure_columns()` `migrate_funnel_keys()` / `test_funnel_keys.py` |
 | W1-7 | CSV import/export | TODO | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
@@ -70,7 +70,8 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 
 1. **`CATERING_SALES_TARGETS` は本番未作成**（コードはあるが `/catering-sales-setup` 未実行）。
    → 「既存22列に11列追加」ではなく **`CATERING_SHEETS` を33列に書き換えてから新規作成**。
-   W1-5 のマイグレーションは不要。`generate_test_data` も33列に揃える。
+   W1-5 のマイグレーションは不要。`generate_test_data` は見出し駆動（`[row_data.get(h, "") for h in header]`）
+   なので**変更不要**。ただし `_get_or_create_sheet` の書式範囲 `A1:V1`（22列固定）は列数算出に直す。
 2. **ファネルの表はほぼ空**（`03`/`04`/`05`/`12`/`13` が0行、`02` はサンプル1件）。
    → 列追加の破壊性は **中 → 低**。ただし手順（版履歴 → dry-run → 承認）は省略しない。
 3. **過去の流入元は遡れない**（売上が POS 月次合計のみ）。
@@ -82,7 +83,7 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 **変更してよいファイル：**
 - `configs/catering_growth_vocab.py`（新規・語彙定数のみ）
 - `core/catering_growth.py`（新規・**唯一の新規 core モジュール**）
-- `core/catering_sales.py`（`CATERING_SHEETS` ヘッダに11列追記 ＋ `generate_test_data` を33列に）
+- `core/catering_sales.py`（`CATERING_SHEETS` を33列に ＋ 書式範囲を列数算出に ＋ `setup(dry_run=)` 追加）
 - `core/entrypoint.py`（`@app.route` を最大5本**追加のみ**。既存ルートは触らない）
 - `core/daily_action_commander.py`（catering のタスク供給元を1つ追加。**新規 Scheduler は作らない**）
 - `tests/catering_growth/**`（新規）

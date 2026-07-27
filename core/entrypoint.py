@@ -1176,10 +1176,14 @@ def lead_export_knowledge():
 
 @app.route("/catering-sales-setup", methods=["POST", "GET"])
 def catering_sales_setup():
-    """CATERING_SALES_TARGETS / CATERING_SALES_DASHBOARD シートを作成（初回のみ）"""
+    """CATERING_SALES_TARGETS / CATERING_SALES_DASHBOARD シートを作成（初回のみ）
+
+    ?dry_run=1 を付けると1セルも書き込まず、作成予定の一覧のみ返す（本番適用前の確認用）。
+    """
     try:
         from core.catering_sales import setup as catering_sales_setup_fn
-        result = catering_sales_setup_fn(SPREADSHEET_ID, CREDS_PATH)
+        dry_run = str(request.values.get("dry_run", "")).strip().lower() in ("1", "true", "yes")
+        result = catering_sales_setup_fn(SPREADSHEET_ID, CREDS_PATH, dry_run=dry_run)
         return jsonify(result), 200
     except Exception as e:
         traceback.print_exc()

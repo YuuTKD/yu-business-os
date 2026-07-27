@@ -2,6 +2,95 @@
 
 ---
 
+## TASK-015 W1-2 / W1-4.5 完了報告 — 集客OS 語彙のコード化 ＋ CRM 33列化
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/catering-growth-crm-33cols |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-27 |
+| **リスク分類** | **High**（`core/**` `configs/**` 変更）→ マージ前に人間承認が必要 |
+| **対象** | `catering`（TREE's Catering）のみ |
+| **対象外・不変** | beauty / tachinomiya / ryukyu_hinabe / pasta_pasta / z1 |
+| **本番シートへの適用** | **未実施**（コードのみ。適用はオーナー承認後） |
+
+### 変更内容
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `configs/catering_growth_vocab.py` | NEW | 語彙の正典（流入元12 / 種別11 / ステータス13＋遷移 / utm_medium 9 / 失注理由8 / 優先度3 / ID形式 / 既存列からの写像 / 純関数13本）。**import は `__future__` のみ** |
+| `core/catering_sales.py` | MODIFIED | `CATERING_SALES_TARGETS` を22→**33列**（既存22列は順序・名称不変、追加11列は右端のみ）／ヘッダ書式範囲を `A1:V1` 固定から `col_letter(len(header))` 算出に／`setup()` に `dry_run` 追加（既定 `False` で既存挙動を維持） |
+| `core/entrypoint.py` | MODIFIED | `/catering-sales-setup` に `?dry_run=1` を追加（ルート数は増やさない） |
+| `tests/catering_growth/test_vocabulary.py` | NEW | 43件（件数一致・語彙妥当性・遷移・写像・ステータス導出・ID・安全性） |
+| `tests/catering_growth/test_sheet_schema.py` | NEW | 16件（33列・既存22列不変・追加列は右端・見出し一意・書式範囲・dry_run 非書込み） |
+| `docs/catering-growth/*.md` / `TASK.md` | MODIFIED | 前回の誤記を訂正（下記）・進捗更新 |
+
+### テスト結果
+
+`requirements.lock` から依存を入れたクリーン環境（Python 3.11）で実行。
+
+```
+python -m unittest discover -s tests -p "test_*.py"
+→ Ran 629 tests ... OK      （失敗0・エラー0・スキップ0）
+python -m compileall -q core configs scripts tests   → OK
+python -c "import core.entrypoint"                    → OK（routes 166 = 165ルート + static）
+```
+
+内訳: 既存 570件 + 新規 59件 = 629件。**既存テストの件数を減らしていない。**
+
+> ⚠️ **注記**: ローカル素の `python3` では `gspread` / `flask` 未インストールのため
+> 9件が ERROR になる。これは `main` でも同一に再現する**環境要因**で、
+> 依存を入れた環境では全件 pass することを本PRで確認した。
+
+### 前回報告の訂正（2件）
+
+1. **`generate_test_data` の列ズレ懸念は誤りだった。** 実際は
+   `[row_data.get(h, "") for h in header]` と**見出し駆動**で組み立てており、
+   列を増やせば自動追従して追加列は空欄で入る。読み取り側4関数も
+   `get_all_records()` ＋ `.get()` の名前参照で列追加に耐性がある。→ 変更不要。
+2. **代わりに真の問題を発見**: `_get_or_create_sheet` のヘッダ書式範囲が
+   `ws.format("A1:V1", …)` と**22列目で固定**。33列にすると右端11列が未装飾で残る。
+   → 列数から算出する形に修正し、テストで固定した。
+
+### 実装中に見つけて直した不具合
+
+`derive_status()` の初版が **`未成約` を「成約」と誤判定して `WON` を返していた**
+（`"成約" in "未成約"` が真になる）。`generate_test_data` が入れる既定値がまさに
+`未成約` / `未提出` / `未商談` / `未送信` なので、**テストデータ20件が全部「受注済み」に
+見える**不具合だった。否定形（`未` を含む値）を除外し、回帰テストを2件追加。
+
+### 手動確認手順（本番適用は承認後）
+
+```
+1. オーナーが Sheets の版履歴で復元ポイントを作成
+   （ファイル > 版履歴 > 現在の版に名前を付ける）
+2. GET /catering-sales-setup?dry_run=1
+   → 1セルも書かず「作成予定シートと列数(33)」を返すことを確認
+3. オーナー承認
+4. GET /catering-sales-setup        （dry_run なし）
+5. シートを目視: 33列・見出しが AG 列まで装飾されていること
+6. GET /catering-weekly を実行し、受注率・粗利率が適用前と一致することを確認
+   （現状は両方0のため、値が変わらないことの確認）
+```
+
+### 未解決事項・人間判断が必要な項目
+
+| # | 内容 |
+|---|---|
+| 1 | **本PRは高リスク（`core/**` `configs/**`）。マージにオーナー承認が必要** |
+| 2 | **本番シートへの適用は未実施。** 上記手順で承認後に実行する |
+| 3 | **ケータリング LP の URL** — `booking_url` が空。UTM のベースURLに必須（`CATERING_LP_BASE_URL`） |
+| 4 | **¥211,500 のオーダー弁当の発注元** — 売上の41%・月目標の26%を占める最優先の商機 |
+| 5 | 過去14件の取引先（`05_顧客台帳` が0行のため掘り起こしが必要） |
+
+### 次に実装すべきタスク
+
+W1-3（UTM URL 生成の純関数）。`core/catering_growth.py` を新規作成し、
+`build_utm_url()` / `validate_utm_token()` を実装する。LP のベースURLは
+`CATERING_LP_BASE_URL` から読み、コードに実値を持たない。
+
+---
+
 ## Phase B2-8A 完了報告 — Catering deploy 承認の監査台帳記録
 
 | 項目 | 内容 |
