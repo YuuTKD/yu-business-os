@@ -525,6 +525,274 @@ def backfill_inquiry_ids(spreadsheet_id: str, creds_path: str, dry_run: bool = T
     return summary
 
 
+# ══════════════════════════════════════════════════════════════════
+# CSV 一括投入（sheet-schema.md §2-1 / operations-sop.md §4 Step 2）
+# ══════════════════════════════════════════════════════════════════
+
+# docs/catering-growth/contacts_template.csv と同じ並び。
+CSV_COLUMNS: tuple[str, ...] = (
+    "対象先名", "種別", "流入元コード", "カテゴリ", "担当者名", "電話", "メール",
+    "Instagram", "Webサイト", "エリア", "接触元", "優先度", "見込み確度",
+    "想定ニーズ", "推定単価", "紹介者", "メモ",
+)
+
+# これが空だと誰に何を送るか決まらないので必須。
+CSV_REQUIRED: tuple[str, ...] = ("対象先名",)
+
+# CSV の列名 → シートの列名（違うものだけ）
+_CSV_TO_SHEET = {"対象先名": "営業先名"}
+
+
+def _norm_cell(value: object) -> str:
+    return str(value if value is not None else "").strip()
+
+
+def _parse_int(value: object) -> int | None:
+    """'1,500' '¥1500' '1500円' などから整数を取り出す。取れなければ None。"""
+    text = re.sub(r"[,¥￥\s円]", "", _norm_cell(value))
+    if text in ("", "-"):
+        return None
+    try:
+        return int(float(text))
+    except ValueError:
+        return None
+
+
+def parse_contacts_csv(text: str, start_seq: int = 1, existing: list[dict] | None = None) -> dict:
+    """CSV テキストを検証して投入用の行に変換する純関数。
+
+    設計:
+      - **1行の不備で全体を落とさない。** 行ごとに reject して理由を返す
+      - 種別・流入元コードは空欄なら既定値を入れる（空欄は集計を壊すため許さない）
+      - 重複判定は 電話 / メール / Instagram / 対象先名 のいずれか一致
+        （CSV 内の重複と、既存シート行との重複の両方を見る）
+      - `対象先ID` は start_seq から連番で採番する
+
+    existing は既存シート行（`get_all_records()` 相当の dict のリスト）。
+    """
+    import csv
+    import io
+
+    from configs.catering_growth_vocab import (
+        CONTACT_TYPE_DEFAULT, CONFIDENCE_MAX, CONFIDENCE_MIN, PRIORITY_DEFAULT,
+        contact_type_from_category, format_contact_id, is_valid_contact_type,
+        is_valid_priority, is_valid_source_code,
+    )
+
+    reader = csv.DictReader(io.StringIO(text or ""))
+    header = [h.strip() for h in (reader.fieldnames or [])]
+    if not header:
+        return {"ok": False, "error": "CSV が空です（ヘッダ行がありません）",
+                "accepted": [], "rejected": [], "duplicates": []}
+
+    missing_cols = [c for c in CSV_REQUIRED if c not in header]
+    if missing_cols:
+        return {"ok": False, "error": f"必須列がありません: {missing_cols}",
+                "accepted": [], "rejected": [], "duplicates": []}
+
+    unknown_cols = [h for h in header if h and h not in CSV_COLUMNS]
+
+    # 既存行のキーを集めて重複を弾く
+    seen: dict[str, str] = {}   # 正規化キー → 何行目/既存
+    for row in (existing or []):
+        for key_col in ("電話", "メール", "Instagram", "営業先名"):
+            val = _norm_cell(row.get(key_col)).lower()
+            if val:
+                seen.setdefault(val, "既存シート")
+
+    accepted: list[dict] = []
+    rejected: list[dict] = []
+    duplicates: list[dict] = []
+    seq = start_seq
+
+    for line_no, raw in enumerate(reader, start=2):   # 2行目からデータ
+        # 列数がヘッダより多い行は reject する。
+        # `200,000` のように数値のカンマを引用符で囲まずに書くと1列が2列に割れ、
+        # **以降の列が全部ずれて静かに壊れる**。黙って取り込まず理由を返す。
+        extras = raw.get(None)
+        if extras:
+            rejected.append({
+                "line": line_no,
+                "reason": (f"列数がヘッダ({len(header)}列)より多いです（+{len(extras)}）。"
+                           "数値の桁区切りカンマは引用符で囲むか、カンマ無しで書いてください"),
+                "row": {k: _norm_cell(v) for k, v in raw.items() if k},
+            })
+            continue
+
+        row = {k.strip(): _norm_cell(v) for k, v in raw.items() if k}
+        if not any(row.values()):
+            continue  # 完全な空行は無視
+
+        name = row.get("対象先名", "")
+        if not name:
+            rejected.append({"line": line_no, "reason": "対象先名が空です", "row": row})
+            continue
+
+        errors: list[str] = []
+
+        # 種別: 空欄ならカテゴリから推定、それも無ければ既定値
+        ctype = row.get("種別", "")
+        if not ctype:
+            ctype = contact_type_from_category(row.get("カテゴリ", ""))
+        elif not is_valid_contact_type(ctype):
+            errors.append(f"種別が語彙外です: {ctype!r}")
+
+        # 流入元コード: 空欄なら種別から寄せる。不正値は reject（黙って other にしない）
+        source = row.get("流入元コード", "")
+        if not source:
+            source = ctype if is_valid_source_code(ctype) else "other"
+        elif not is_valid_source_code(source):
+            errors.append(f"流入元コードが語彙外です: {source!r}")
+
+        priority = row.get("優先度", "").upper() or PRIORITY_DEFAULT
+        if not is_valid_priority(priority):
+            errors.append(f"優先度は A/B/C です: {row.get('優先度')!r}")
+
+        confidence = row.get("見込み確度", "")
+        conf_val: int | str = ""
+        if confidence:
+            parsed = _parse_int(confidence)
+            if parsed is None or not (CONFIDENCE_MIN <= parsed <= CONFIDENCE_MAX):
+                errors.append(f"見込み確度は0〜100の数値です: {confidence!r}")
+            else:
+                conf_val = parsed
+
+        unit = row.get("推定単価", "")
+        unit_val: int | str = ""
+        if unit:
+            parsed = _parse_int(unit)
+            if parsed is None or parsed < 0:
+                errors.append(f"推定単価が数値として読めません: {unit!r}")
+            else:
+                unit_val = parsed
+
+        if errors:
+            rejected.append({"line": line_no, "reason": " / ".join(errors), "row": row})
+            continue
+
+        # 重複判定
+        dup_hit = None
+        for key_col in ("電話", "メール", "Instagram", "対象先名"):
+            val = row.get(key_col, "").lower()
+            if val and val in seen:
+                dup_hit = (key_col, row.get(key_col), seen[val])
+                break
+        if dup_hit:
+            duplicates.append({
+                "line": line_no, "対象先名": name,
+                "reason": f"{dup_hit[0]}={dup_hit[1]!r} が {dup_hit[2]} と重複",
+            })
+            continue
+
+        for key_col in ("電話", "メール", "Instagram", "対象先名"):
+            val = row.get(key_col, "").lower()
+            if val:
+                seen[val] = f"CSV {line_no}行目"
+
+        out = {_CSV_TO_SHEET.get(k, k): row.get(k, "") for k in CSV_COLUMNS}
+        out["種別"]        = ctype
+        out["流入元コード"] = source
+        out["優先度"]      = priority
+        out["見込み確度"]   = conf_val
+        out["推定単価"]     = unit_val
+        out["対象先ID"]    = format_contact_id(seq)
+        out["ステータス"]   = "READY_TO_CONTACT" if any(
+            row.get(c) for c in ("電話", "メール", "Instagram")) else "NEW"
+        accepted.append(out)
+        seq += 1
+
+    return {
+        "ok": True,
+        "accepted": accepted,
+        "rejected": rejected,
+        "duplicates": duplicates,
+        "accepted_count": len(accepted),
+        "rejected_count": len(rejected),
+        "duplicate_count": len(duplicates),
+        "unknown_columns": unknown_cols,
+        "next_seq": seq,
+    }
+
+
+def import_contacts(
+    spreadsheet_id: str,
+    creds_path: str,
+    csv_text: str,
+    dry_run: bool = True,
+) -> dict:
+    """CSV を `CATERING_SALES_TARGETS` へ一括投入する。
+
+    dry_run=True（既定）では1セルも書かず、取込予定と reject 理由だけを返す。
+    既存行は読むだけで、**追加は末尾への append のみ**（既存行を書き換えない）。
+    """
+    ss = _open_sheet(spreadsheet_id, creds_path)
+    try:
+        ws = ss.worksheet("CATERING_SALES_TARGETS")
+    except Exception as exc:
+        return {"ok": False, "error":
+                f"CATERING_SALES_TARGETS が見つかりません（/catering-sales-setup を先に実行）: {exc}"}
+
+    header = ws.row_values(1)
+    existing = ws.get_all_records() if len(ws.get_all_values()) > 1 else []
+    start_seq = _next_contact_seq(existing)
+
+    plan = parse_contacts_csv(csv_text, start_seq=start_seq, existing=existing)
+    if not plan.get("ok"):
+        return plan
+
+    summary = {
+        "ok": True,
+        "dry_run": dry_run,
+        "existing_rows": len(existing),
+        "accepted_count": plan["accepted_count"],
+        "rejected_count": plan["rejected_count"],
+        "duplicate_count": plan["duplicate_count"],
+        "rejected": plan["rejected"],
+        "duplicates": plan["duplicates"],
+        "unknown_columns": plan["unknown_columns"],
+        "start_contact_id": plan["accepted"][0]["対象先ID"] if plan["accepted"] else None,
+    }
+
+    if dry_run:
+        summary["note"] = "1セルも書き込んでいません。適用するには dry_run=False で再実行してください。"
+        return summary
+    if not plan["accepted"]:
+        summary["note"] = "取込対象がありません（全件 reject または重複）。"
+        return summary
+
+    sheet_header = trim_trailing_empty(header)
+    if not sheet_header:
+        # 見出しが読めないときだけ、シート定義の正本を参照する
+        # （catering_sales は gspread を import するため、必要時のみ読み込む）
+        from core.catering_sales import CATERING_SHEETS
+        sheet_header = CATERING_SHEETS["CATERING_SALES_TARGETS"]
+
+    now = _now_jst_str()
+    rows = []
+    for rec in plan["accepted"]:
+        rec = {**rec, "登録日時": now}
+        rows.append([rec.get(h, "") for h in sheet_header])
+
+    ws.append_rows(rows, value_input_option="RAW")
+    summary["note"] = f"{len(rows)}件を追加しました（既存行は変更していません）。"
+    return summary
+
+
+def _next_contact_seq(existing: list[dict]) -> int:
+    """既存の `対象先ID` を見て、次に使う連番を返す（欠番は再利用しない）。"""
+    max_seq = 0
+    for row in existing or []:
+        m = re.match(r"^tc_(\d{4})$", _norm_cell(row.get("対象先ID")))
+        if m:
+            max_seq = max(max_seq, int(m.group(1)))
+    return max_seq + 1
+
+
+def _now_jst_str() -> str:
+    from datetime import datetime, timedelta, timezone
+    return datetime.now(timezone(timedelta(hours=9))).strftime("%Y/%m/%d %H:%M:%S")
+
+
 if __name__ == "__main__":  # pragma: no cover
     import json
     import sys

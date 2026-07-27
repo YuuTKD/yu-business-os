@@ -278,15 +278,30 @@ class SafetyTest(unittest.TestCase):
                     "api.line.me", "broadcast", "smtplib", "openai", "gcloud"):
             self.assertNotIn(bad, src, f"{bad} を含めてはいけない")
 
-    def test_39_no_sheet_or_row_creation(self):
-        """シート作成・行追加は行わないこと。
+    def test_39_never_creates_or_deletes_sheets(self):
+        """シートの作成・削除は絶対に行わないこと。
 
-        W1-6 で見出し行への `update` と空セルへの `batch_update` が入ったが、
-        いずれも dry_run 既定（test_40b）で、**行やシートを増やさない**。
+        書き込み自体は正当に存在する（W1-6 の見出し行追加・空セル埋め戻し、
+        W1-7 の行追加）。守るべき不変条件は以下の2つで、
+        「書き込みが無いこと」ではない。
+          1. シートを作らない・消さない（この関数）
+          2. 書き込み系の公開関数はすべて dry_run 既定 True（test_40b）
         """
         src = self._src()
-        for bad in ("append_row", "append_rows", "add_worksheet", "del_worksheet"):
-            self.assertNotIn(bad, src, f"{bad}: 行やシートを増やしてはいけない")
+        for bad in ("add_worksheet", "del_worksheet", "duplicate_sheet",
+                    "delete_worksheet", "batch_clear", "clear()"):
+            self.assertNotIn(bad, src, f"{bad}: シートを作成・削除してはいけない")
+
+    def test_39b_never_modifies_existing_rows_wholesale(self):
+        """既存行を一括で書き換える操作を持たないこと。
+
+        `update` は見出し行と空セルのみ、`append_rows` は末尾追加のみ。
+        行の削除・並べ替え・全面更新の手段を持たない。
+        """
+        src = self._src()
+        for bad in ("delete_rows", "delete_row", "insert_rows", "insert_row",
+                    "sort(", "resize("):
+            self.assertNotIn(bad, src, f"{bad}: 既存行を動かしてはいけない")
 
     def test_40_no_secret_or_id_or_pii(self):
         src = self._src()
