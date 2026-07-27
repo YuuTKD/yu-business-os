@@ -55,7 +55,7 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 | W1-4 | 本番ワークブックの棚卸し | **DONE**（読み取り専用調査で代替実施） | `current-state-2026-07-27.md`。`inspect()` の実装は**不要になった**（下記参照） |
 | W1-2 | 語彙のコード化 | **DONE** | `configs/catering_growth_vocab.py`（純定数＋純関数・import は `__future__` のみ）/ `tests/catering_growth/test_vocabulary.py`（43件） |
 | **W1-4.5** | **CRM シートを33列で作成する準備** | **DONE（コード）／本番適用は承認待ち** | `core/catering_sales.py` を33列に・書式範囲を列数算出に・`setup(dry_run=)` 追加 / `core/entrypoint.py` に `?dry_run=1` / `tests/catering_growth/test_sheet_schema.py`（16件） |
-| W1-3 | UTM URL 生成（純関数） | TODO | `core/catering_growth.py` `build_utm_url` `validate_utm_token` / `test_utm.py` |
+| W1-3 | UTM URL 生成（純関数） | **DONE** | `core/catering_growth.py`（`build_utm_url` / `build_utm_url_for_contact` / `validate_utm_token` / `validate_campaign` / `make_campaign` / `resolve_lp_base_url` / `parse_utm`）/ `tests/catering_growth/test_utm.py`（41件） |
 | W1-5 | ~~CRM 列拡張（+11列）~~ | **不要**（W1-4.5 に統合） | `ensure_columns()` の実装のみ残す（W1-6 で使う） |
 | W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | TODO | `ensure_columns()` `migrate_funnel_keys()` / `test_funnel_keys.py` |
 | W1-7 | CSV import/export | TODO | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
@@ -82,7 +82,7 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 
 **変更してよいファイル：**
 - `configs/catering_growth_vocab.py`（新規・語彙定数のみ）
-- `core/catering_growth.py`（新規・**唯一の新規 core モジュール**）
+- `core/catering_growth.py`（新規・**唯一の新規 core モジュール**）— W1-3 で作成済（UTM 部分）
 - `core/catering_sales.py`（`CATERING_SHEETS` を33列に ＋ 書式範囲を列数算出に ＋ `setup(dry_run=)` 追加）
 - `core/entrypoint.py`（`@app.route` を最大5本**追加のみ**。既存ルートは触らない）
 - `core/daily_action_commander.py`（catering のタスク供給元を1つ追加。**新規 Scheduler は作らない**）

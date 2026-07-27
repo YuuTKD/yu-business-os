@@ -2,6 +2,98 @@
 
 ---
 
+## TASK-015 W1-3 完了報告 — UTM リンク生成
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/catering-growth-utm |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-27 |
+| **リスク分類** | **High**（`core/**` 追加）→ マージ前に人間承認が必要 |
+| **対象** | `catering`（TREE's Catering）のみ |
+| **本番影響** | **なし**（純関数のみ。Sheets・LINE・外部送信いずれも触らない） |
+
+### 変更内容
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/catering_growth.py` | NEW | UTM リンク生成。`build_utm_url` / `build_utm_url_for_contact` / `validate_utm_token` / `validate_campaign` / `make_campaign` / `resolve_lp_base_url` / `parse_utm` ＋ CLI |
+| `tests/catering_growth/test_utm.py` | NEW | 41件 |
+| `TASK.md` | MODIFIED | W1-3 を DONE に |
+
+### 設計上の判断
+
+1. **不正な値は自動補正せず拒否する（`UtmError`）。** `Instagram` を黙って `instagram` に
+   直すと、シート上の値と実際のURLが食い違い、**集計が静かにズレる**。落とした方が安全。
+2. **LP の URL をコードに持たない。** `CATERING_LP_BASE_URL` → `business_registry.catering.booking_url`
+   の順で解決し、どこにも無ければ**例外を投げて止まる**（fail-closed）。空文字で URL を
+   組むと全ての流入元が追跡不能になるため、黙って続行しない。
+3. **既存クエリとフラグメントを保持し、`utm_*` だけ上書きする。** 生成済みURLを再度
+   ベースに渡しても `utm_*` が増殖しない（`test_25`）。
+4. **冪等。** 同じ入力からは常に同じURLが出る（`test_24`）。シートの `UTM_URL` 列を
+   何度再生成しても値が変わらない。
+
+### テスト結果
+
+`requirements.lock` から依存を入れたクリーン環境（Python 3.11）。
+
+```
+python -m unittest discover -s tests -p "test_*.py"
+→ Ran 670 tests ... OK      （失敗0 / エラー0 / スキップ0）
+python -m compileall -q core configs scripts tests   → OK
+```
+
+内訳: 既存 629件 + 新規 41件 = 670件。
+
+**主なテスト観点**: 日本語・空白・大文字・ハイフンの拒否／`campaign` 形式／
+既存クエリの保持／`utm_*` の上書き（重複しない）／フラグメント保持／冪等性／
+生成済みURLの再投入／**流入元12 × medium 9 = 108通り全組み合わせ**／
+未設定LP URL の fail-closed／`parse_utm` の往復一致。
+
+### 手動確認（CLI・ネットワーク未使用）
+
+```
+$ python -m core.catering_growth instagram story tc_202608_test
+{"ok": false, "error": "LP のベースURLが未設定です。環境変数 CATERING_LP_BASE_URL を…"}
+  → 終了コード 1（fail-closed）
+
+$ CATERING_LP_BASE_URL="https://example.test/catering" \
+  python -m core.catering_growth partner_space qr tc_202608_partner_open tc_0042
+{"ok": true, "utm_url": "https://example.test/catering?utm_source=partner_space
+  &utm_medium=qr&utm_campaign=tc_202608_partner_open&utm_content=tc_0042"}
+  → 終了コード 0
+
+$ CATERING_LP_BASE_URL=… python -m core.catering_growth インスタ story tc_202608_test
+{"ok": false, "error": "utm_source: 流入元コード12値のいずれかにしてください → 'インスタ'"}
+  → 終了コード 1
+```
+
+### 安全性
+
+- ネットワークアクセスなし・外部送信なし・AI API なし（`test_38` で不在を検証）
+- **Sheets への書き込みコードを持たない**（`append_row` / `add_worksheet` 等の不在を `test_39` で検証）
+- Secret / spreadsheet ID 実値 / 個人情報なし（`test_40`）
+- LP の URL 実値をハードコードしていない（`test_41`）
+- `requirements.txt` 不変 = 新規依存ゼロ = **新規課金ゼロ**
+- `scripts/acquisition/**`（凍結パス）未変更 / 他5事業に影響なし
+
+### 未解決事項・人間判断が必要な項目
+
+| # | 内容 |
+|---|---|
+| 1 | **本PRのマージ承認**（`core/**` を含む高リスク） |
+| 2 | **ケータリング LP の URL** — 未設定のため実運用のUTMがまだ生成できない（コードは完成） |
+| 3 | 本番シートへの33列適用（W1-4.5）— **ゆうさんの指示により保留中** |
+| 4 | ¥211,500 のオーダー弁当の発注元 / 過去14件の取引先 |
+
+### 次に実装すべきタスク
+
+W1-6（ファネル結合キーの付与）。`ensure_columns()` を実装し、`02_問い合わせ` に
+`問い合わせID` `対象先ID` `流入元コード` `UTM_campaign` を、`03_見積` `04_受注管理` に
+`問い合わせID` を右端追加する。**dry-run 既定。本番適用は別承認。**
+
+---
+
 ## TASK-015 W1-2 / W1-4.5 完了報告 — 集客OS 語彙のコード化 ＋ CRM 33列化
 
 | 項目 | 内容 |
