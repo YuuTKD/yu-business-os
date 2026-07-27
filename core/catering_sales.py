@@ -16,19 +16,39 @@ import gspread
 from google.oauth2.service_account import Credentials
 from google.cloud import storage as gcs_storage
 
+from configs.catering_growth_vocab import col_letter
+
 JST = timezone(timedelta(hours=9))
 GCS_BUCKET  = "tree-beauty-blog-images"
 GCS_PREFIX  = "knowledge-os"
 GCS_PROJECT = "tree-beauty-ai-499303"
 
 # ── シート定義 ─────────────────────────────────────────────
+# CATERING_SALES_TARGETS は 33列（既存22 + 集客OS用11）。
+#   既存22列（登録日時〜Obsidian Path）の順序・名称は変更禁止。
+#   追加11列は必ず右端に並べる（docs/catering-growth/sheet-schema.md §2-1）。
+#   読み取りは全て get_all_records()（見出し名 → dict）なので列追加に耐性がある。
+#   許容値の正本は configs/catering_growth_vocab.py。
 CATERING_SHEETS = {
     "CATERING_SALES_TARGETS": [
+        # ── 既存22列（順序・名称を変えない）──
         "登録日時", "営業先名", "カテゴリ", "住所", "電話", "Instagram",
         "Webサイト", "担当者名", "想定ニーズ", "推定単価", "優先度",
         "営業文", "初回アプローチ日", "最終接触日", "返信状況",
         "商談状況", "見積状況", "成約状況", "次回フォロー日",
         "実売上", "メモ", "Obsidian Path",
+        # ── 集客OS用の追加11列（右端のみ）──
+        "対象先ID",          # tc_0042。この表の主キー
+        "種別",              # CONTACT_TYPES（11値）
+        "流入元コード",        # SOURCE_CODES（12値）。空欄禁止
+        "メール",
+        "エリア",
+        "接触元",
+        "見込み確度",         # 0〜100
+        "ステータス",         # STATUSES（13値）
+        "使用テンプレートID",   # TEMPLATE_LIBRARY への参照
+        "UTM_URL",          # 機械が自動生成。手入力しない
+        "紹介者",
     ],
     "CATERING_SALES_DASHBOARD": [
         "日付", "営業先数", "本日DM対象", "送信済み", "返信あり",
@@ -206,7 +226,8 @@ def _get_or_create_sheet(ss: gspread.Spreadsheet, title: str, header: list) -> g
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title=title, rows=2000, cols=len(header))
         ws.update(values=[header], range_name="A1")
-        ws.format("A1:V1", {
+        # 範囲は列数から算出する（22列固定の "A1:V1" をハードコードしない）
+        ws.format(f"A1:{col_letter(len(header))}1", {
             "backgroundColor": {"red": 0.05, "green": 0.15, "blue": 0.25},
             "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
         })
@@ -215,17 +236,46 @@ def _get_or_create_sheet(ss: gspread.Spreadsheet, title: str, header: list) -> g
 
 # ── 公開API ───────────────────────────────────────────────
 
-def setup(spreadsheet_id: str, creds_path: str) -> dict:
-    """2シート (CATERING_SALES_TARGETS / CATERING_SALES_DASHBOARD) を作成"""
+def setup(spreadsheet_id: str, creds_path: str, dry_run: bool = False) -> dict:
+    """2シート (CATERING_SALES_TARGETS / CATERING_SALES_DASHBOARD) を作成。
+
+    dry_run=True のときは**1セルも書かず**、作成予定／既存の判定だけを返す。
+    本番シートへ適用する前の確認に使う（docs/catering-growth/sheet-schema.md §5）。
+
+    既定は False。既存の /catering-sales-setup ルートの挙動を変えないため。
+    """
     gc = _gc(creds_path)
     ss = gc.open_by_key(spreadsheet_id)
+
+    existing = {ws.title for ws in ss.worksheets()}
+    plan = []
+    for name, header in CATERING_SHEETS.items():
+        plan.append({
+            "sheet": name,
+            "action": "既存（変更しない）" if name in existing else "新規作成",
+            "columns": len(header),
+            "header": header,
+        })
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "plan": plan,
+            "would_create": [p["sheet"] for p in plan if p["action"] == "新規作成"],
+            "note": "1セルも書き込んでいません。適用するには dry_run=False で再実行してください。",
+            "url": f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}",
+        }
+
     created = []
     for name, header in CATERING_SHEETS.items():
         _get_or_create_sheet(ss, name, header)
         created.append(name)
     return {
         "ok": True,
+        "dry_run": False,
         "sheets_created": created,
+        "plan": plan,
         "spreadsheet_id": spreadsheet_id,
         "url": f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}",
     }
