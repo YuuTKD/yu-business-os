@@ -47,20 +47,35 @@ Claude Code に確認する（勝手に語彙やスキーマを変えない）�
 
 ### 実装単位（W1-2 〜 W1-9 / 1タスク=1PR）
 
-W1-1（設計文書）は完了済み。以下を**この順に**実装する。
+W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完了済み。以下を**この順に**実装する。
 
-| # | 内容 | 主な成果物 |
-|---|---|---|
-| W1-2 | 語彙のコード化 | `configs/catering_growth_vocab.py` / `tests/catering_growth/test_vocabulary.py` `test_safety.py` |
-| W1-3 | UTM URL 生成（純関数） | `core/catering_growth.py` `build_utm_url` `validate_utm_token` / `test_utm.py` |
-| W1-4 | 現状シート棚卸し（**read-only**） | `core/catering_growth.py` `inspect()` / `test_inspect.py` |
-| W1-5 | CRM 列拡張（+11列） | `ensure_columns()` / `core/catering_sales.py` 更新 / `test_ensure_columns.py` |
-| W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | `migrate_funnel_keys()` / `test_funnel_keys.py` |
-| W1-7 | CSV import/export | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
-| W1-8 | 次アクション抽出（8ルール） | `next_actions()` ＋ `daily_action_commander` への供給 / `test_next_actions.py` |
-| W1-9 | `GROWTH_DASHBOARD`（流入元別 受注/売上/粗利） | `aggregate_by_source()` `refresh_dashboard()` / `test_attribution.py` |
+| # | 内容 | 状態 | 主な成果物 |
+|---|---|---|---|
+| W1-1 | 設計正典4文書 | **DONE** | `vocabulary.md` `sheet-schema.md` `operations-sop.md` `contacts_template.csv`（PR #46） |
+| W1-4 | 本番ワークブックの棚卸し | **DONE**（読み取り専用調査で代替実施） | `current-state-2026-07-27.md`。`inspect()` の実装は**不要になった**（下記参照） |
+| W1-2 | 語彙のコード化 | TODO | `configs/catering_growth_vocab.py` / `tests/catering_growth/test_vocabulary.py` `test_safety.py` |
+| W1-3 | UTM URL 生成（純関数） | TODO | `core/catering_growth.py` `build_utm_url` `validate_utm_token` / `test_utm.py` |
+| **W1-4.5** | **CRMシートを本番に作成（新規）** | TODO・**コード変更ゼロ** | `/catering-sales-setup` を実行。ただし `core/catering_sales.py` の `CATERING_SHEETS` を**33列に更新してから**実行する |
+| W1-5 | ~~CRM 列拡張（+11列）~~ | **不要**（W1-4.5 に統合） | `ensure_columns()` の実装のみ残す（W1-6 で使う） |
+| W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | TODO | `ensure_columns()` `migrate_funnel_keys()` / `test_funnel_keys.py` |
+| W1-7 | CSV import/export | TODO | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
+| W1-8 | 次アクション抽出（8ルール） | TODO | `next_actions()` ＋ `daily_action_commander` への供給 / `test_next_actions.py` |
+| W1-9 | `GROWTH_DASHBOARD`（流入元別 受注/売上/粗利） | TODO | `aggregate_by_source()` `refresh_dashboard()` / `test_attribution.py` |
 
 各単位の受入条件は `docs/catering-growth/repo-audit.md` §8 に全項目記載。**そこを満たすこと。**
+
+### 実地調査（2026-07-27）を受けた変更点【必読】
+
+`current-state-2026-07-27.md` の3発見により、当初計画から以下が変わった。
+
+1. **`CATERING_SALES_TARGETS` は本番未作成**（コードはあるが `/catering-sales-setup` 未実行）。
+   → 「既存22列に11列追加」ではなく **`CATERING_SHEETS` を33列に書き換えてから新規作成**。
+   W1-5 のマイグレーションは不要。`generate_test_data` も33列に揃える。
+2. **ファネルの表はほぼ空**（`03`/`04`/`05`/`12`/`13` が0行、`02` はサンプル1件）。
+   → 列追加の破壊性は **中 → 低**。ただし手順（版履歴 → dry-run → 承認）は省略しない。
+3. **過去の流入元は遡れない**（売上が POS 月次合計のみ）。
+   → W1-9 の `GROWTH_DASHBOARD` は**記録開始後3〜4週**まで受注・粗利がゼロで並ぶ。
+   これは不具合ではない。`結合できなかった件数` を必ず出して状態が分かるようにする。
 
 ### 実装スコープ
 
@@ -128,8 +143,10 @@ Codex は 1〜5 を**実行しない**。dry-run 出力を見せるところま�
 | # | 内容 | ブロックするタスク |
 |---|---|---|
 | 1 | **ケータリング LP の URL** — `configs/business_registry.py:79` の `booking_url` が空。UTM のベース URL に必須 | W1-3 の手動確認 / 運用開始 |
-| 2 | **本番ワークブックの実データ量が未確認** — サンプル行のみか実データありか不明 | W1-5 / W1-6 の適用（W1-4 の read-only 棚卸しで解消） |
-| 3 | デプロイ済み `trees-catering-ai` の `SPREADSHEET_ID` env が上書きされていないか未確認 | W1-9（CRM とファネルが同一ワークブックである前提） |
+| 2 | ~~本番ワークブックの実データ量が未確認~~ | **2026-07-27 解消**（`current-state-2026-07-27.md`）|
+| 3 | デプロイ済み `trees-catering-ai` の `SPREADSHEET_ID` env が上書きされていないか未確認 | W1-4.5（CRMシートをどのワークブックに作るかの確認）|
+| 4 | **¥211,500 のオーダー弁当の発注元** — 売上の41%・月目標の26%を占める最優先の商機 | 運用（実装はブロックしない） |
+| 5 | 過去14件の取引先（`05_顧客台帳` が0行のため掘り起こしが必要） | W1-7 の実データ投入 |
 
 ### 確認事項
 
