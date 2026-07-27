@@ -57,7 +57,7 @@ W1-1（設計文書）と W1-4（本番ワークブックの棚卸し）は完�
 | **W1-4.5** | **CRM シートを33列で作成する準備** | **DONE（コード）／本番適用は承認待ち** | `core/catering_sales.py` を33列に・書式範囲を列数算出に・`setup(dry_run=)` 追加 / `core/entrypoint.py` に `?dry_run=1` / `tests/catering_growth/test_sheet_schema.py`（16件） |
 | W1-3 | UTM URL 生成（純関数） | **DONE** | `core/catering_growth.py`（`build_utm_url` / `build_utm_url_for_contact` / `validate_utm_token` / `validate_campaign` / `make_campaign` / `resolve_lp_base_url` / `parse_utm`）/ `tests/catering_growth/test_utm.py`（41件） |
 | W1-5 | ~~CRM 列拡張（+11列）~~ | **不要**（W1-4.5 に統合） | `ensure_columns()` の実装のみ残す（W1-6 で使う） |
-| W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | TODO | `ensure_columns()` `migrate_funnel_keys()` / `test_funnel_keys.py` |
+| W1-6 | ファネル結合キー付与（`02`+4 / `03`+1 / `04`+2） | **DONE** | `ensure_columns()` / `migrate_funnel_keys()` / `backfill_inquiry_ids()` ＋ 純関数 `plan_missing_columns` `plan_inquiry_backfill` `parse_year_month` `trim_trailing_empty` / `/catering-funnel-keys` `/catering-backfill-inquiry-ids` `/catering-utm` / `test_funnel_keys.py`（37件） |
 | W1-7 | CSV import/export | TODO | `parse_contacts_csv()` `import_contacts()` / `test_csv_import.py` |
 | W1-8 | 次アクション抽出（8ルール） | TODO | `next_actions()` ＋ `daily_action_commander` への供給 / `test_next_actions.py` |
 | W1-9 | `GROWTH_DASHBOARD`（流入元別 受注/売上/粗利） | TODO | `aggregate_by_source()` `refresh_dashboard()` / `test_attribution.py` |

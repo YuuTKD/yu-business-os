@@ -267,17 +267,26 @@ class SafetyTest(unittest.TestCase):
         with open(path, encoding="utf-8") as f:
             return f.read()
 
-    def test_38_no_network_or_send(self):
+    def test_38_no_external_send(self):
+        """外部への送信手段を持たないこと。
+
+        W1-6 で Sheets 操作が加わったため gspread は許容するが、
+        遅延 import であることは test_funnel_keys.test_35 で検証している。
+        """
         src = self._src()
         for bad in ("requests", "urllib.request", "httpx", "socket",
-                    "api.line.me", "broadcast", "smtplib", "openai", "gspread"):
+                    "api.line.me", "broadcast", "smtplib", "openai", "gcloud"):
             self.assertNotIn(bad, src, f"{bad} を含めてはいけない")
 
-    def test_39_no_sheet_write(self):
+    def test_39_no_sheet_or_row_creation(self):
+        """シート作成・行追加は行わないこと。
+
+        W1-6 で見出し行への `update` と空セルへの `batch_update` が入ったが、
+        いずれも dry_run 既定（test_40b）で、**行やシートを増やさない**。
+        """
         src = self._src()
-        for bad in ("append_row", "append_rows", "add_worksheet", "update(",
-                    "batch_update", "gcloud"):
-            self.assertNotIn(bad, src, f"{bad}: この段階ではシートに書き込まない")
+        for bad in ("append_row", "append_rows", "add_worksheet", "del_worksheet"):
+            self.assertNotIn(bad, src, f"{bad}: 行やシートを増やしてはいけない")
 
     def test_40_no_secret_or_id_or_pii(self):
         src = self._src()
@@ -288,13 +297,27 @@ class SafetyTest(unittest.TestCase):
                         r"0\d{1,3}-\d{2,4}-\d{4}"):
             self.assertIsNone(re.search(pattern, src), f"検出: {pattern}")
 
+    def test_40b_write_functions_default_to_dry_run(self):
+        """シートに書く公開関数はすべて dry_run 既定 True であること。"""
+        src = self._src()
+        for fn in ("ensure_columns", "migrate_funnel_keys", "backfill_inquiry_ids"):
+            self.assertIsNotNone(
+                re.search(rf"def {fn}\([^)]*dry_run: bool = True", src, re.DOTALL),
+                f"{fn} の dry_run 既定が True でない")
+
     def test_41_no_hardcoded_lp_url(self):
-        """LP の URL 実値をコードに持たない（環境変数名だけを持つ）。"""
+        """LP の URL 実値をコードに持たない（環境変数名だけを持つ）。
+
+        許容するのは Google API のスコープ識別子（`https://www.googleapis.com/auth/...`）
+        とテスト用の `example.test` のみ。
+        """
         src = self._src()
         self.assertIn("LP_BASE_URL_ENV", src)
-        self.assertIsNone(
-            re.search(r"https?://(?!example\.test)[A-Za-z0-9.-]+", src),
-            "実在しそうな URL がハードコードされている")
+        found = re.findall(r"https?://[A-Za-z0-9.\-]+", src)
+        allowed = {"https://www.googleapis.com", "https://example.test"}
+        unexpected = [u for u in found if u not in allowed]
+        self.assertEqual(unexpected, [],
+                         f"実在しそうな URL がハードコードされている: {unexpected}")
 
 
 if __name__ == "__main__":

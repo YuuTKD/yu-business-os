@@ -2,6 +2,127 @@
 
 ---
 
+## TASK-015 W1-6 完了報告 — ファネル結合キーの付与
+
+| 項目 | 内容 |
+|---|---|
+| **ブランチ** | feat/catering-growth-funnel-keys |
+| **報告者** | Claude Code |
+| **報告日** | 2026-07-27 |
+| **リスク分類** | **High**（`core/**` 変更） |
+| **対象** | `catering`（TREE's Catering）のみ |
+| **本番シートへの適用** | **未実施。** 全エンドポイントが dry-run 既定で、適用にはオーナーが `?dry_run=0` を明示する必要がある |
+
+### 何を解決したか
+
+`02_問い合わせ` → `03_見積` → `04_受注管理` の間に共通キーが無く、**流入元別の受注売上・
+粗利が算出不能**だった（`repo-audit.md` §1.6 / `current-state-2026-07-27.md`）。
+`問い合わせID` を3枚に右端追加することでファネルが閉じる。
+
+```
+CRM(対象先ID・流入元コード) → 02(問い合わせID・流入元コード)
+  → 03(問い合わせID) → 04(問い合わせID・受注番号) → 07(受注番号・粗利)
+```
+
+### 変更内容
+
+| ファイル | 種別 | 概要 |
+|---|---|---|
+| `core/catering_growth.py` | MODIFIED | `FUNNEL_KEY_SPEC` / `PROTECTED_POSITIONS` / `SchemaError` ／純関数 `trim_trailing_empty` `plan_missing_columns` `parse_year_month` `plan_inquiry_backfill` ／ I/O `ensure_columns` `migrate_funnel_keys` `backfill_inquiry_ids`。CLI を `utm` サブコマンド式に変更 |
+| `core/entrypoint.py` | MODIFIED | `/catering-funnel-keys` `/catering-backfill-inquiry-ids` `/catering-utm` を追加（前2本は **dry-run 既定**）／`_growth_dry_run()` ヘルパ |
+| `tests/catering_growth/test_funnel_keys.py` | NEW | 37件 |
+| `tests/catering_growth/test_utm.py` | MODIFIED | 安全性テスト3件を実態に合わせて書き直し（下記） |
+| `docs/catering-growth/sheet-schema.md` `TASK.md` | MODIFIED | 実エンドポイントを追記・進捗更新 |
+
+### 設計上の判断
+
+1. **列の追加は右端のみ。挿入・並べ替え・改名・削除の機能を実装しない。**
+   `core/catering_report.py` の位置参照（`02→r[0]` / `03→r[4]` / `04→r[4]` /
+   `06→r[0],r[3]` / `07→r[0],r[7]`）を `PROTECTED_POSITIONS` として記録し、
+   追加列が必ずそれより右に来ることをテストで固定した（`test_10`）。
+2. **冪等。** 2回実行しても列が重複せず、2回目は書き込みゼロ（`test_14`）。
+3. **既存セルを絶対に上書きしない。** 埋め戻しは空セルのみ（`test_23`）。
+   既存 ID があればその月の連番を継いで衝突を避ける（`test_24`）。
+4. **黙って落とさない。** 日付が読めない行はスキップし、件数と行番号を返す（`test_25`）。
+5. **見出しの重複は fail-closed。** `get_all_records()` が壊れるため例外で止める（`test_06`）。
+6. **列追加前に埋め戻しを呼ぶと例外で止まる**（`test_28`）。順序ミスを実行時に検出する。
+7. **gspread は `_open_sheet()` の中で遅延 import。** 純関数をオフラインでテストできる
+   （本タスクの37件は gspread 未インストールでも全件実行できる）。
+8. **新規エンドポイントは dry-run 既定。** `?dry_run=0` を明示しない限り書き込まない。
+   既存 `/catering-sales-setup` は挙動を変えないため既定のまま。
+
+### 既存テストの書き直し（甘くしていないことの説明）
+
+W1-3 時点の `test_utm.py` は「このモジュールは Sheets に触らない」前提だったが、
+W1-6 で Sheets 操作が正当に加わったため3件を書き直した。**緩めたのではなく意図を精緻化した。**
+
+| テスト | 変更前 | 変更後 |
+|---|---|---|
+| `test_38` | `gspread` の存在を禁止 | 外部送信手段（`requests` / `api.line.me` / `openai` 等）の禁止に限定。gspread は遅延 import であることを `test_funnel_keys.test_35` で別途検証 |
+| `test_39` | `update(` `batch_update` も禁止 | **シート作成・行追加の禁止**（`append_row` / `add_worksheet` 等）に変更。`update` は見出し行と空セルのみが対象 |
+| `test_41` | すべての `http(s)://` を禁止 | Google API のスコープ識別子（`googleapis.com`）と `example.test` のみ許可し、それ以外の URL 実値を禁止 |
+| `test_40b` | — | **新規追加。** 書き込み系3関数の `dry_run` 既定が True であることを検証 |
+
+### テスト結果
+
+`requirements.lock` から依存を入れたクリーン環境（Python 3.11）。
+
+```
+python -m unittest discover -s tests -p "test_*.py"
+→ Ran 708 tests ... OK      （失敗0 / エラー0 / スキップ0）
+python -m compileall -q core configs scripts tests   → OK
+```
+
+内訳: 既存 670件 + 新規 37件 + 書き直し1件 = 708件。
+
+### 手動確認
+
+```
+ルート登録:      /catering-funnel-keys /catering-backfill-inquiry-ids /catering-utm
+                （総ルート数 166 → 169）
+dry_run 既定:    引数なし → True ✅
+                 ?dry_run=0     → False ✅
+                 ?dry_run=false → False ✅
+                 ?dry_run=1     → True  ✅
+                 ?dry_run=yes   → True  ✅
+```
+
+### 安全性
+
+- **本番シートへの書き込みを実行していない。** 新規2本は dry-run 既定
+- 外部送信なし（`requests` / `api.line.me` / `openai` / `smtplib` / `gcloud` の不在を検証）
+- **行やシートを増やさない**（`append_row` / `add_worksheet` の不在を検証）
+- **挿入・改名・削除の機能を実装していない**（`insert_cols` / `delete_columns` 等の不在を検証）
+- Secret / spreadsheet ID 実値 / 個人情報なし。テストデータは架空社名のみ
+- `requirements.txt` 不変 = 新規依存ゼロ = **新規課金ゼロ**
+- `scripts/acquisition/**`（凍結パス）未変更 / 他5事業に影響なし
+
+### 本番適用の手順（オーナー操作・未実施）
+
+```
+1. Sheets の版履歴で復元ポイントを作成
+2. GET /catering-funnel-keys                  → 追加予定列を確認（書き込みゼロ）
+3. GET /catering-funnel-keys?dry_run=0        → 適用
+4. GET /catering-weekly                       → 受注率・粗利率が適用前と一致するか確認
+5. GET /catering-backfill-inquiry-ids          → 埋め戻し予定を確認（書き込みゼロ）
+6. GET /catering-backfill-inquiry-ids?dry_run=0 → 適用
+```
+
+### 未解決事項・人間判断が必要な項目
+
+| # | 内容 |
+|---|---|
+| 1 | **本番シートへの適用（上記手順）— 未実施。ゆうさんの指示により保留中** |
+| 2 | **ケータリング LP の URL** — 未設定のため `/catering-utm` は実運用値を返せない（コードは完成） |
+| 3 | ¥211,500 のオーダー弁当の発注元 / 過去14件の取引先 |
+
+### 次に実装すべきタスク
+
+W1-7（CSV import/export）。`parse_contacts_csv()` を純関数で実装し、
+100件の連絡先を `CATERING_SALES_TARGETS` へ一括投入できるようにする。**dry-run 既定。**
+
+---
+
 ## TASK-015 W1-3 完了報告 — UTM リンク生成
 
 | 項目 | 内容 |
