@@ -1238,6 +1238,71 @@ def catering_sales_status():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ── 広告費ゼロ集客OS: ファネル結合キー（sheet-schema.md §1）──────────
+# 既定は dry_run=True。適用するには ?dry_run=0 を明示する。
+
+def _growth_dry_run() -> bool:
+    """dry_run は既定 True。?dry_run=0 / false / no のときだけ適用する。"""
+    raw = str(request.values.get("dry_run", "1")).strip().lower()
+    return raw not in ("0", "false", "no")
+
+
+@app.route("/catering-funnel-keys", methods=["POST", "GET"])
+def catering_funnel_keys():
+    """02_問い合わせ / 03_見積 / 04_受注管理 に結合キー列を右端追加する。
+
+    既定は dry_run（1セルも書かない）。適用は ?dry_run=0。
+    適用後は /catering-weekly で受注率・粗利率が適用前と一致することを確認する。
+    """
+    try:
+        from core.catering_growth import migrate_funnel_keys
+        result = migrate_funnel_keys(SPREADSHEET_ID, CREDS_PATH, dry_run=_growth_dry_run())
+        return jsonify(result), 200 if result.get("ok") else 207
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/catering-backfill-inquiry-ids", methods=["POST", "GET"])
+def catering_backfill_inquiry_ids():
+    """既存 02_問い合わせ 行に 問い合わせID / 流入元コード を埋め戻す。
+
+    空セルのみを埋め、既に値があるセルは上書きしない。
+    既定は dry_run（1セルも書かない）。適用は ?dry_run=0。
+    """
+    try:
+        from core.catering_growth import backfill_inquiry_ids
+        result = backfill_inquiry_ids(SPREADSHEET_ID, CREDS_PATH, dry_run=_growth_dry_run())
+        return jsonify(result), 200 if result.get("ok") else 207
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/catering-utm", methods=["GET", "POST"])
+def catering_utm():
+    """UTM 付き LP URL を生成して返す（読み取り専用・シートに触らない）。
+
+    例: /catering-utm?source=partner_space&medium=qr&campaign=tc_202608_partner_open&content=tc_0042
+    ベースURLは環境変数 CATERING_LP_BASE_URL（未設定なら business_registry の booking_url）。
+    """
+    try:
+        from core.catering_growth import UtmError, build_utm_url
+        try:
+            url = build_utm_url(
+                source=str(request.values.get("source", "")).strip(),
+                medium=str(request.values.get("medium", "")).strip(),
+                campaign=str(request.values.get("campaign", "")).strip(),
+                content=request.values.get("content"),
+            )
+        except UtmError as ue:
+            return jsonify({"ok": False, "error": str(ue)}), 400
+        return jsonify({"ok": True, "utm_url": url}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/catering-sales-export-knowledge", methods=["POST", "GET"])
 def catering_sales_export_knowledge():
     """優先度S/Aの営業先をGCS Knowledge OSへMarkdown保存"""

@@ -237,10 +237,22 @@ ensure_columns(ss, シート名, 欲しい列名リスト, dry_run=True)
 ### 実行の順番（絶対に守る）
 
 1. **オーナーがスプレッドシートの版履歴で復元ポイントを作る**（`ファイル > 版履歴 > 現在の版に名前を付ける`）
-2. `dry_run=True` で実行 → 「何を足すか」の一覧をオーナーが確認
+2. `dry_run` で実行 → 「何を足すか」の一覧をオーナーが確認
 3. **オーナーが承認**
-4. `dry_run=False` で実行
+4. `?dry_run=0` を明示して実行
 5. **確認テスト**: `/catering-weekly` を叩いて、**受注率・粗利率が列追加前と同じ数字になることを確認**。1つでも変わっていたら列がズレている ⇒ 版履歴から戻す
+
+### 実際のエンドポイント（2026-07-27 実装済 / W1-6）
+
+| 用途 | エンドポイント | 既定 |
+|---|---|---|
+| CRM シート作成（33列） | `/catering-sales-setup` | **書き込む**（`?dry_run=1` で確認のみ） |
+| 結合キー列の追加 | `/catering-funnel-keys` | **dry-run**（`?dry_run=0` で適用） |
+| 既存行への番号の埋め戻し | `/catering-backfill-inquiry-ids` | **dry-run**（`?dry_run=0` で適用） |
+| UTM 付き URL の生成 | `/catering-utm?source=…&medium=…&campaign=…&content=…` | 読み取りのみ |
+
+> `/catering-sales-setup` だけ既定が「書き込む」なのは、W1-2 以前から存在する
+> エンドポイントで既存の挙動を変えないため。新規の2本は**dry-run 既定**にしている。
 
 ### ⚠️ `core/catering_setup.py` は二度と実行しない
 
